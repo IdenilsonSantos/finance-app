@@ -1,3 +1,31 @@
+// Transactions
+
+export interface TransactionResponse {
+  id: string;
+  workspaceId: string;
+  bankAccountId: string;
+  amount: number;
+  type: "income" | "expense";
+  description: string | null;
+  beneficiary: string | null;
+  category: string;
+  paymentMethod: string | null;
+  date: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BankAccountResponse {
+  id: string;
+  workspaceId: string;
+  name: string;
+  type: string;
+  color: string;
+  balance: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Auth
 
 export interface LoginResponse {

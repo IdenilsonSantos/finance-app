@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useSession, signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
+import { getInitials } from "@/lib/format";
 import Link from "next/link";
 import { Bell, Settings, LogOut, User } from "lucide-react";
 
@@ -20,13 +21,6 @@ interface HeaderProps {
   subtitle?: string;
   className?: string;
   actions?: React.ReactNode;
-}
-
-function getInitials(name?: string | null): string {
-  if (!name) return "U";
-  const parts = name.trim().split(" ").filter(Boolean);
-  if (parts.length === 1) return parts[0][0].toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
 export function Header({ title, subtitle, className, actions }: HeaderProps) {
@@ -56,6 +50,7 @@ export function Header({ title, subtitle, className, actions }: HeaderProps) {
             </div>
           )}
 
+          <div className="hidden md:flex items-center gap-1.5">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -146,6 +141,7 @@ export function Header({ title, subtitle, className, actions }: HeaderProps) {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          </div>
         </div>
       </div>
 

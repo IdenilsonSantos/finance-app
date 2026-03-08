@@ -16,6 +16,19 @@ const config: Config = {
       },
     },
     extend: {
+      keyframes: {
+        shimmer: {
+          "100%": { transform: "translateX(100%)" },
+        },
+        fadeSlideIn: {
+          "0%": { opacity: "0", transform: "translateY(6px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+      },
+      animation: {
+        shimmer: "shimmer 1.4s infinite",
+        fadeSlideIn: "fadeSlideIn 0.25s ease forwards",
+      },
       fontFamily: {
         sans: ["var(--font-outfit)", "ui-sans-serif", "system-ui"],
       },

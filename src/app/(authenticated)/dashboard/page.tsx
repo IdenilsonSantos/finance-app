@@ -24,29 +24,24 @@ function Shimmer({ className }: { className?: string }) {
 function DashboardSkeleton() {
   return (
     <div className="space-y-6 md:space-y-8">
-      {/* Financial Insights */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Shimmer className="md:col-span-2 h-40" />
         <Shimmer className="h-40" />
         <Shimmer className="h-40" />
       </div>
 
-      {/* Accounts + CashFlow */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
         <Shimmer className="h-72" />
         <Shimmer className="lg:col-span-2 h-72" />
       </div>
 
-      {/* Expenses + Goals */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
         <Shimmer className="h-64" />
         <Shimmer className="lg:col-span-2 h-64" />
       </div>
 
-      {/* Savings */}
       <Shimmer className="h-56" />
 
-      {/* Recent Transactions */}
       <Shimmer className="h-80" />
     </div>
   );

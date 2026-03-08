@@ -23,12 +23,14 @@ import {
 } from "@/components/ui/tooltip";
 import { useSidebar } from "@/components/providers/SidebarContext";
 import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { getInitials } from "@/lib/format";
 
 const Sidebar = () => {
   const pathname = usePathname();
-  const { collapsed, toggleSidebar, isMobileOpen, setMobileOpen } =
-    useSidebar();
+  const { collapsed, toggleSidebar, isMobileOpen, setMobileOpen } = useSidebar();
+  const { data: session } = useSession();
 
   const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -149,6 +151,27 @@ const Sidebar = () => {
               return <React.Fragment key={item.href}>{linkEl}</React.Fragment>;
             })}
           </nav>
+
+          {isMobileOpen && (
+            <div className="md:hidden border-t border-gray-100 pt-4 mt-2">
+              <div className="flex items-center gap-3 px-2 py-2 rounded-2xl">
+                <Avatar className="w-9 h-9 border border-slate-200 shrink-0">
+                  <AvatarImage src={session?.user?.image ?? undefined} />
+                  <AvatarFallback className="bg-[#1E1E2D] text-white text-xs font-bold">
+                    {getInitials(session?.user?.name)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-800 truncate">
+                    {session?.user?.name || "Usuário"}
+                  </p>
+                  <p className="text-xs text-slate-400 truncate">
+                    {session?.user?.email}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="pt-6 mt-auto flex flex-col gap-3 border-t border-gray-100">
             {collapsed && !isMobileOpen ? (

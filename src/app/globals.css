@@ -89,6 +89,9 @@
   body {
     @apply bg-background text-foreground font-sans;
   }
+  button, [role="button"], a {
+    cursor: pointer;
+  }
 }
 
 @keyframes shimmer {

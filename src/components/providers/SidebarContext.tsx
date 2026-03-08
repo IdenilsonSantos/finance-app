@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
 
 interface SidebarContextType {
   collapsed: boolean;
@@ -18,6 +18,15 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const toggleSidebar = () => {
     setCollapsed((prev) => !prev);
   };
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const handler = (e: MediaQueryListEvent) => {
+      if (e.matches) setMobileOpen(false);
+    };
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
 
   return (
     <SidebarContext.Provider
