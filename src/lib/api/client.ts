@@ -20,8 +20,9 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     headers["Authorization"] = `Bearer ${session.accessToken}`;
   }
 
-  if (workspaceId) {
-    headers["x-workspace-id"] = workspaceId;
+  const resolvedWorkspaceId = workspaceId ?? session?.workspaceId;
+  if (resolvedWorkspaceId) {
+    headers["x-workspace-id"] = resolvedWorkspaceId;
   }
 
   const response = await fetch(`${BASE_URL}${path}`, {

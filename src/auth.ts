@@ -1,8 +1,12 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { LoginResponse } from "@/types/api";
 
 const API_URL = process.env.API_URL ?? "http://localhost:3001";
+
+interface ApiAuthResponse {
+  access_token: string;
+  user: { id: string; name: string; email: string };
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -23,13 +27,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (!res.ok) return null;
 
-        const data: LoginResponse = await res.json();
+        const data: ApiAuthResponse = await res.json();
 
         return {
           id: data.user.id,
           name: data.user.name,
           email: data.user.email,
-          accessToken: data.accessToken,
+          accessToken: data.access_token,
         };
       },
     }),
@@ -42,11 +46,27 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     maxAge: 15 * 60,
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
-        token.accessToken = (user as { accessToken: string }).accessToken;
-        token.workspaceId = null;
+        const accessToken = (user as { accessToken: string }).accessToken;
+        token.accessToken = accessToken;
+
+        const wsRes = await fetch(`${API_URL}/workspaces/mine`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }).catch(() => null);
+
+        if (wsRes?.ok) {
+          const workspaces = await wsRes.json();
+          token.workspaceId = workspaces[0]?.id ?? null;
+        } else {
+          token.workspaceId = null;
+        }
       }
+
+      if (trigger === "update" && session?.workspaceId !== undefined) {
+        token.workspaceId = session.workspaceId;
+      }
+
       return token;
     },
     async session({ session, token }) {

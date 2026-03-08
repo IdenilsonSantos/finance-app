@@ -22,6 +22,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useSidebar } from "@/components/providers/SidebarContext";
+import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
 import { signOut } from "next-auth/react";
 
 const Sidebar = () => {
@@ -101,6 +102,10 @@ const Sidebar = () => {
               <ChevronLeft className="h-5 w-5" />
             )}
           </Button>
+        </div>
+
+        <div className="mb-4">
+          <WorkspaceSwitcher collapsed={collapsed && !isMobileOpen} />
         </div>
 
         <TooltipProvider delayDuration={200}>
