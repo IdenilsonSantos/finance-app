@@ -7,17 +7,50 @@ type RequestOptions = Omit<RequestInit, "body"> & {
   workspaceId?: string;
 };
 
-async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+// Prevent multiple concurrent refresh attempts
+let refreshPromise: Promise<string | null> | null = null;
+
+async function tryRefreshToken(): Promise<string | null> {
+  if (refreshPromise) return refreshPromise;
+
+  refreshPromise = (async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/auth/refresh`, {
+        method: "POST",
+        credentials: "include",
+      });
+
+      if (!res.ok) return null;
+
+      const data: { access_token: string } = await res.json();
+      return data.access_token;
+    } catch {
+      return null;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
+}
+
+async function request<T>(
+  path: string,
+  options: RequestOptions = {},
+  overrideToken?: string,
+): Promise<T> {
   const session = await getSession();
   const { body, workspaceId, ...fetchOptions } = options;
+
+  const accessToken = overrideToken ?? session?.accessToken;
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(fetchOptions.headers as Record<string, string>),
   };
 
-  if (session?.accessToken) {
-    headers["Authorization"] = `Bearer ${session.accessToken}`;
+  if (accessToken) {
+    headers["Authorization"] = `Bearer ${accessToken}`;
   }
 
   const resolvedWorkspaceId = workspaceId ?? session?.workspaceId;
@@ -31,6 +64,15 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     body: body !== undefined ? JSON.stringify(body) : undefined,
     credentials: "include",
   });
+
+  if (response.status === 401 && !overrideToken) {
+    const newToken = await tryRefreshToken();
+    if (newToken) {
+      return request<T>(path, options, newToken);
+    }
+    await signOut({ redirect: true, callbackUrl: "/sign-in" });
+    throw new Error("Unauthorized");
+  }
 
   if (response.status === 401) {
     await signOut({ redirect: true, callbackUrl: "/sign-in" });

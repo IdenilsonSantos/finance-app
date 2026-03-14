@@ -43,7 +43,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   session: {
     strategy: "jwt",
-    maxAge: 15 * 60,
+    maxAge: 7 * 24 * 60 * 60, // 7 days — matches refresh token TTL
   },
   callbacks: {
     async jwt({ token, user, trigger, session }) {
@@ -63,8 +63,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
       }
 
-      if (trigger === "update" && session?.workspaceId !== undefined) {
-        token.workspaceId = session.workspaceId;
+      if (trigger === "update") {
+        if (session?.workspaceId !== undefined) {
+          token.workspaceId = session.workspaceId;
+        }
+        if (session?.accessToken !== undefined) {
+          token.accessToken = session.accessToken;
+        }
       }
 
       return token;
