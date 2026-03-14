@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { api } from "@/lib/api/client";
 import { DashboardResponse } from "@/types/api";
@@ -17,8 +17,9 @@ export function useDashboard({ accountId, category }: UseDashboardOptions = {}) 
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [tick, setTick] = useState(0);
 
-  useEffect(() => {
+  const fetchData = useCallback(async () => {
     if (!workspaceId) return;
 
     const params = new URLSearchParams();
@@ -29,12 +30,21 @@ export function useDashboard({ accountId, category }: UseDashboardOptions = {}) 
     setLoading(true);
     setError(null);
 
-    api
-      .get<DashboardResponse>(`/dashboard${query ? `?${query}` : ""}`)
-      .then((res) => setData(res))
-      .catch((err) => setError(err.message ?? "Erro ao carregar dados"))
-      .finally(() => setLoading(false));
+    try {
+      const res = await api.get<DashboardResponse>(`/dashboard${query ? `?${query}` : ""}`);
+      setData(res);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Erro ao carregar dados");
+    } finally {
+      setLoading(false);
+    }
   }, [accountId, category, workspaceId]);
 
-  return { data, loading, error };
+  useEffect(() => {
+    fetchData();
+  }, [fetchData, tick]);
+
+  const refetch = useCallback(() => setTick((n) => n + 1), []);
+
+  return { data, loading, error, refetch };
 }

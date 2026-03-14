@@ -21,6 +21,7 @@ import { MonthDateStrip } from "@/components/ui/MonthDateStrip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CATEGORY_STYLES } from "@/lib/categories";
+import { FilterTabs } from "@/components/ui/FilterTabs";
 import { TransactionsTable } from "@/components/transactions/TransactionsTable";
 import { TransactionFormDialog } from "@/components/transactions/TransactionFormDialog";
 import { useTransactions } from "@/hooks/useTransactions";
@@ -470,26 +471,11 @@ export default function TransactionsPage() {
             </div>
 
             <div className="px-6 py-3 border-b border-slate-50">
-              <div className="flex gap-1 flex-wrap">
-                {TYPE_TABS.map((tab) => {
-                  const Icon = tab.icon;
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => setTypeFilter(tab.id)}
-                      className={cn(
-                        "flex items-center gap-1.5 px-4 py-2 rounded-2xl text-sm font-semibold transition-all cursor-pointer",
-                        typeFilter === tab.id
-                          ? "bg-[#1E1E2D] text-white"
-                          : "text-slate-500 hover:text-slate-700 hover:bg-slate-50",
-                      )}
-                    >
-                      <Icon className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">{tab.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              <FilterTabs
+                tabs={TYPE_TABS}
+                value={typeFilter}
+                onChange={(v) => setTypeFilter(v as TypeFilter)}
+              />
             </div>
 
             <TransactionsTable

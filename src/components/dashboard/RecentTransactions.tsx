@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { FilterTabs } from "@/components/ui/FilterTabs";
 import { cn } from "@/lib/utils";
 import {
   ArrowRight,
@@ -34,23 +35,11 @@ export function RecentTransactions({ transactions, scheduled }: RecentTransactio
   return (
     <Card className="shadow-sm border-none bg-white rounded-3xl overflow-hidden">
       <div className="px-6 py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-50">
-        <div className="flex gap-1 bg-slate-50 p-1 rounded-2xl">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all",
-                activeTab === tab.id
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-500 hover:text-slate-700",
-              )}
-            >
-              <tab.icon className="w-4 h-4" />
-              <span className="hidden sm:inline">{tab.label}</span>
-            </button>
-          ))}
-        </div>
+        <FilterTabs
+          tabs={TABS}
+          value={activeTab}
+          onChange={(v) => setActiveTab(v as TabId)}
+        />
         <button
           onClick={() => router.push(activeTab === "recent" ? "/transactions" : "/transactions?tab=scheduled")}
           className="text-emerald-500 hover:text-emerald-700 text-sm font-bold flex items-center gap-1 transition-colors whitespace-nowrap"

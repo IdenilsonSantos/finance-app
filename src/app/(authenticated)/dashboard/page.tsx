@@ -62,7 +62,7 @@ export default function DashboardPage() {
   const accountId = searchParams.get("accountId") ?? undefined;
   const category = searchParams.get("category") ?? undefined;
 
-  const { data, loading } = useDashboard({ accountId, category });
+  const { data, loading, refetch } = useDashboard({ accountId, category });
 
   const firstName = session?.user?.name?.split(" ")[0];
   const greeting = `${getGreeting()}${firstName ? `, ${firstName}` : ""}! Aqui está um resumo das suas finanças`;
@@ -147,7 +147,7 @@ export default function DashboardPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
               <div className="lg:col-span-1">
-                <AccountsOverview accounts={data.accounts} />
+                <AccountsOverview accounts={data.accounts} onMutate={refetch} />
               </div>
               <div className="lg:col-span-2">
                 <CashFlowChart data={data.cashFlow} />
