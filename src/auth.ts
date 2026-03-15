@@ -70,6 +70,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (session?.accessToken !== undefined) {
           token.accessToken = session.accessToken;
         }
+        if (session?.name !== undefined) {
+          token.name = session.name;
+        }
+        if (session?.email !== undefined) {
+          token.email = session.email;
+        }
       }
 
       return token;

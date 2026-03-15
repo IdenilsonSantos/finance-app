@@ -230,7 +230,6 @@ export default function GoalsPage() {
           <div className="flex items-center justify-center py-24 text-slate-400 text-sm">{error}</div>
         ) : (
           <>
-
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <StatCard label="Total acumulado" value={totalCurrent} icon={TrendingUp} format={formatCurrency} color="#10b981" />
               <StatCard label="Total das metas" value={totalTarget} icon={Target} format={formatCurrency} color="#3b82f6" />

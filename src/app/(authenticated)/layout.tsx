@@ -2,6 +2,7 @@
 
 import { useSession, signOut } from "next-auth/react";
 import { SidebarProvider } from "@/components/providers/SidebarContext";
+import { WorkspacesProvider } from "@/components/providers/WorkspacesContext";
 import Sidebar from "@/components/Sidebar";
 import MobileHeader from "@/components/MobileHeader";
 import { Building2, Loader2, LogIn, RefreshCw } from "lucide-react";
@@ -55,7 +56,7 @@ export default function AuthenticatedLayout({
 }) {
   const { data: session, status } = useSession();
 
-  if (status === "loading") {
+  if (status === "loading" && !session) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
@@ -74,14 +75,16 @@ export default function AuthenticatedLayout({
   }
 
   return (
-    <SidebarProvider>
-      <div className="flex w-full h-screen bg-gray-50 text-gray-900 overflow-hidden">
-        <Sidebar />
-        <main className="flex-1 flex flex-col h-full overflow-hidden relative">
-          <MobileHeader />
-          <div className="flex-1 overflow-y-auto">{children}</div>
-        </main>
-      </div>
-    </SidebarProvider>
+    <WorkspacesProvider>
+      <SidebarProvider>
+        <div className="flex w-full h-screen bg-gray-50 text-gray-900 overflow-hidden">
+          <Sidebar />
+          <main className="flex-1 flex flex-col h-full overflow-hidden relative">
+            <MobileHeader />
+            <div className="flex-1 overflow-y-auto">{children}</div>
+          </main>
+        </div>
+      </SidebarProvider>
+    </WorkspacesProvider>
   );
 }
