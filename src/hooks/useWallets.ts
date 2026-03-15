@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { api } from "@/lib/api/client";
 import { BankAccountResponse } from "@/types/api";
@@ -29,57 +29,48 @@ export interface CreateTransferPayload {
 export function useWallets() {
   const { data: session } = useSession();
   const workspaceId = session?.workspaceId;
+  const queryClient = useQueryClient();
 
-  const [wallets, setWallets] = useState<BankAccountResponse[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data, isLoading, error } = useQuery<BankAccountResponse[]>({
+    queryKey: ["bank-accounts", workspaceId],
+    queryFn: () => api.get<BankAccountResponse[]>("/bank-accounts"),
+    enabled: !!workspaceId,
+  });
 
-  const fetchAll = useCallback(async () => {
-    if (!workspaceId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const accounts = await api.get<BankAccountResponse[]>("/bank-accounts");
-      setWallets(accounts);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Erro ao carregar contas");
-    } finally {
-      setLoading(false);
-    }
-  }, [workspaceId]);
-
-  useEffect(() => {
-    fetchAll();
-  }, [fetchAll]);
-
-  async function createWallet(data: CreateWalletPayload) {
-    await api.post("/bank-accounts", data);
-    await fetchAll();
+  function invalidate() {
+    queryClient.invalidateQueries({ queryKey: ["bank-accounts"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    queryClient.invalidateQueries({ queryKey: ["transactions"] });
   }
 
-  async function updateWallet(id: string, data: UpdateWalletPayload) {
-    await api.patch(`/bank-accounts/${id}`, data);
-    await fetchAll();
+  async function createWallet(payload: CreateWalletPayload) {
+    await api.post("/bank-accounts", payload);
+    invalidate();
+  }
+
+  async function updateWallet(id: string, payload: UpdateWalletPayload) {
+    await api.patch(`/bank-accounts/${id}`, payload);
+    invalidate();
   }
 
   async function deleteWallet(id: string) {
     await api.delete(`/bank-accounts/${id}`);
-    await fetchAll();
+    invalidate();
   }
 
-  async function createTransfer(data: CreateTransferPayload) {
-    await api.post("/transfers", data);
-    await fetchAll();
+  async function createTransfer(payload: CreateTransferPayload) {
+    await api.post("/transfers", payload);
+    invalidate();
   }
 
   return {
-    wallets,
-    loading,
-    error,
+    wallets: data ?? [],
+    loading: isLoading,
+    error: error ? (error instanceof Error ? error.message : "Erro ao carregar contas") : null,
     createWallet,
     updateWallet,
     deleteWallet,
     createTransfer,
-    refetch: fetchAll,
+    refetch: () => invalidate(),
   };
 }

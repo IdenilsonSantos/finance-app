@@ -1,3 +1,17 @@
+// Goals
+
+export interface GoalResponse {
+  id: string;
+  workspaceId: string;
+  name: string;
+  targetAmount: number;
+  currentAmount: number;
+  deadline: string | null;
+  color: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Transactions
 
 export interface TransactionResponse {

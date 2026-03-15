@@ -12,6 +12,7 @@ import { formatCurrency } from "@/lib/format";
 import { WalletFormDialog } from "@/components/wallets/WalletFormDialog";
 import { TransferFormDialog } from "@/components/wallets/TransferFormDialog";
 import { api } from "@/lib/api/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { CreateWalletPayload, UpdateWalletPayload, CreateTransferPayload } from "@/hooks/useWallets";
 
 const TYPE_ICONS: Record<string, LucideIcon> = {
@@ -37,6 +38,7 @@ export function AccountsOverview({ accounts, onMutate }: AccountsOverviewProps) 
   const router = useRouter();
   const searchParams = useSearchParams();
   const currentAccountId = searchParams.get("accountId");
+  const queryClient = useQueryClient();
 
   const [editDialog, setEditDialog] = useState(false);
   const [transferDialog, setTransferDialog] = useState(false);
@@ -69,24 +71,31 @@ export function AccountsOverview({ accounts, onMutate }: AccountsOverviewProps) 
     setEditDialog(true);
   }
 
+  function invalidate() {
+    queryClient.invalidateQueries({ queryKey: ["bank-accounts"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    onMutate?.();
+  }
+
   async function handleCreate(data: CreateWalletPayload) {
     await api.post("/bank-accounts", data);
-    onMutate?.();
+    invalidate();
   }
 
   async function handleUpdate(id: string, data: UpdateWalletPayload) {
     await api.patch(`/bank-accounts/${id}`, data);
-    onMutate?.();
+    invalidate();
   }
 
   async function handleDelete(id: string) {
     await api.delete(`/bank-accounts/${id}`);
-    onMutate?.();
+    invalidate();
   }
 
   async function handleTransfer(data: CreateTransferPayload) {
     await api.post("/transfers", data);
-    onMutate?.();
+    invalidate();
   }
 
   return (
@@ -111,7 +120,7 @@ export function AccountsOverview({ accounts, onMutate }: AccountsOverviewProps) 
               )}
               <Link
                 href="/wallets"
-                className="flex items-center gap-1 text-xs font-semibold text-slate-400 hover:text-slate-700 transition-colors"
+                className="flex items-center gap-1 text-xs font-semibold text-emerald-500 hover:text-emerald-700 transition-colors"
               >
                 Ver todas
                 <ArrowRight className="w-3 h-3" />

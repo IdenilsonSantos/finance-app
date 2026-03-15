@@ -4,7 +4,6 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart as PieChartIcon } from "lucide-react";
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { DashboardCategoryItem } from "@/types/api";
 import { CATEGORY_STYLES, getCategoryStyle } from "@/lib/categories";
@@ -17,19 +16,6 @@ interface ExpensesByCategoryChartProps {
 
 export function ExpensesByCategoryChart({ data }: ExpensesByCategoryChartProps) {
   const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const currentCategory = searchParams.get("category");
-
-  const handleCategoryClick = (category: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (params.get("category") === category) {
-      params.delete("category");
-    } else {
-      params.set("category", category);
-    }
-    router.push(`?${params.toString()}`);
-  };
 
   if (!data || data.length === 0) {
     return (
@@ -82,28 +68,18 @@ export function ExpensesByCategoryChart({ data }: ExpensesByCategoryChartProps) 
                 stroke="none"
                 onMouseEnter={(_, index) => setActiveIndex(index)}
                 onMouseLeave={() => setActiveIndex(undefined)}
-                onClick={(d) => handleCategoryClick(d.category)}
               >
                 {data.map((entry, index) => {
                   const style = getCategoryStyle(entry.category);
-                  const isActive =
-                    activeIndex === index || currentCategory === entry.category;
+                  const isActive = activeIndex === index;
                   return (
                     <Cell
                       key={`cell-${index}`}
                       fill={style.color}
-                      opacity={
-                        activeIndex !== undefined
-                          ? activeIndex === index ? 1 : 0.3
-                          : currentCategory
-                            ? currentCategory === entry.category ? 1 : 0.3
-                            : 1
-                      }
+                      opacity={activeIndex !== undefined ? (activeIndex === index ? 1 : 0.3) : 1}
                       stroke={isActive ? style.color : "none"}
                       strokeWidth={isActive ? 2 : 0}
-                      style={{
-                        filter: isActive ? `drop-shadow(0 0 8px ${style.color}40)` : "none",
-                      }}
+                      style={{ filter: isActive ? `drop-shadow(0 0 8px ${style.color}40)` : "none" }}
                     />
                   );
                 })}
@@ -114,7 +90,7 @@ export function ExpensesByCategoryChart({ data }: ExpensesByCategoryChartProps) 
             {activeItem ? (
               <>
                 <span className="text-xs text-slate-500 font-semibold block mb-0.5 uppercase tracking-wider truncate w-full">
-                  {(getCategoryStyle(activeItem.category)).label}
+                  {getCategoryStyle(activeItem.category).label}
                 </span>
                 <span className="text-lg font-bold text-slate-900 block leading-tight">
                   <span className="text-xs align-top mr-0.5">R$</span>
@@ -142,16 +118,15 @@ export function ExpensesByCategoryChart({ data }: ExpensesByCategoryChartProps) 
           <div className="space-y-3 pb-2 pr-4">
             {data.map((item, index) => {
               const style = getCategoryStyle(item.category);
-              const isActive = activeIndex === index || currentCategory === item.category;
+              const isActive = activeIndex === index;
               return (
                 <div
                   key={item.category}
-                  className={`flex items-center justify-between p-2 rounded-xl transition-colors cursor-pointer ${
+                  className={`flex items-center justify-between p-2 rounded-xl transition-colors ${
                     isActive ? "bg-slate-50 ring-1 ring-slate-200" : "hover:bg-slate-50"
                   }`}
                   onMouseEnter={() => setActiveIndex(index)}
                   onMouseLeave={() => setActiveIndex(undefined)}
-                  onClick={() => handleCategoryClick(item.category)}
                 >
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full" style={{ backgroundColor: style.color }} />

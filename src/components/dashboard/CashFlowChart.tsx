@@ -90,10 +90,7 @@ export function CashFlowChart({ data }: CashFlowChartProps) {
                   boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)",
                 }}
                 itemStyle={{ fontSize: "12px", fontWeight: "600" }}
-                formatter={(value: number) => [
-                  formatCurrency(value * 100),
-                  undefined,
-                ]}
+                formatter={(value, name) => [formatCurrency((Number(value) || 0) * 100), name]}
               />
               <Legend
                 verticalAlign="top"

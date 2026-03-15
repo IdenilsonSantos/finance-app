@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { TrendingUp, TrendingDown, AlertCircle, Target, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/format";
+import { useCountUp } from "@/hooks/useCountUp";
 import { DashboardFinancialInsights } from "@/types/api";
 
 interface FinancialInsightsProps {
@@ -24,6 +25,16 @@ export function FinancialInsights({ data }: FinancialInsightsProps) {
     monthSavings,
   } = data;
 
+  const aAvailableLiquidity = useCountUp(availableLiquidity);
+  const aTotalBalance = useCountUp(totalBalance);
+  const aReservedForGoals = useCountUp(reservedForGoals);
+  const aProjectedBalance = useCountUp(projectedBalance);
+  const aMonthExpenses = useCountUp(monthExpenses);
+  const aMonthSavings = useCountUp(monthSavings);
+  const aRemainingBudget = useCountUp(remainingBudget);
+  const aMonthlyGoalsTarget = useCountUp(monthlyGoalsTarget);
+  const aSavingsRate = useCountUp(savingsRate);
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
       <Card className="bg-white border-none shadow-sm rounded-3xl overflow-hidden md:col-span-2">
@@ -40,7 +51,7 @@ export function FinancialInsights({ data }: FinancialInsightsProps) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8">
                 <div>
                   <h3 className="text-3xl font-bold text-slate-900">
-                    {formatCurrency(availableLiquidity)}
+                    {formatCurrency(aAvailableLiquidity)}
                   </h3>
                   <p className="text-[10px] font-bold text-emerald-600 uppercase mt-1">
                     Líquido Disponível
@@ -51,13 +62,13 @@ export function FinancialInsights({ data }: FinancialInsightsProps) {
                   <div className="flex justify-between items-center text-xs py-1 border-b border-slate-50">
                     <span className="text-slate-500">Saldo Total</span>
                     <span className="font-bold text-slate-700">
-                      {formatCurrency(totalBalance)}
+                      {formatCurrency(aTotalBalance)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-xs py-1 border-b border-slate-50">
                     <span className="text-slate-500">Reserva p/ Metas</span>
                     <span className="font-bold text-amber-600">
-                      - {formatCurrency(reservedForGoals)}
+                      - {formatCurrency(aReservedForGoals)}
                     </span>
                   </div>
                 </div>
@@ -75,7 +86,7 @@ export function FinancialInsights({ data }: FinancialInsightsProps) {
                       projectedBalance >= 0 ? "text-slate-900" : "text-red-600",
                     )}
                   >
-                    {formatCurrency(projectedBalance)}
+                    {formatCurrency(aProjectedBalance)}
                   </span>
                   <span className="text-[10px] text-slate-400 leading-tight">
                     Saldo Final = Disponível + Renda - Gastos - Metas
@@ -92,7 +103,7 @@ export function FinancialInsights({ data }: FinancialInsightsProps) {
                   Gasto mensal
                 </p>
                 <p className="text-sm font-bold text-slate-700">
-                  {formatCurrency(monthExpenses)}
+                  {formatCurrency(aMonthExpenses)}
                 </p>
               </div>
               <div className="pt-2 border-t border-slate-50/50">
@@ -100,7 +111,7 @@ export function FinancialInsights({ data }: FinancialInsightsProps) {
                   Disponível p/ Gastar
                 </p>
                 <p className="text-xs font-bold text-slate-500">
-                  {formatCurrency(remainingBudget)}
+                  {formatCurrency(aRemainingBudget)}
                 </p>
               </div>
             </div>
@@ -116,7 +127,7 @@ export function FinancialInsights({ data }: FinancialInsightsProps) {
                   )}
                 >
                   {monthSavings >= 0 ? "+" : ""}
-                  {formatCurrency(monthSavings)}
+                  {formatCurrency(aMonthSavings)}
                 </p>
               </div>
               <div className="pt-2 border-t border-slate-50/50">
@@ -124,7 +135,7 @@ export function FinancialInsights({ data }: FinancialInsightsProps) {
                   Ideal p/ Metas
                 </p>
                 <p className="text-xs font-bold text-slate-500">
-                  {formatCurrency(monthlyGoalsTarget)}
+                  {formatCurrency(aMonthlyGoalsTarget)}
                 </p>
               </div>
             </div>
@@ -196,7 +207,7 @@ export function FinancialInsights({ data }: FinancialInsightsProps) {
         </div>
         <div className="mt-4">
           <h4 className="font-bold text-3xl">
-            {savingsRate < -100 ? "-100" : savingsRate.toFixed(0)}%
+            {aSavingsRate < -100 ? "-100" : aSavingsRate.toFixed(0)}%
           </h4>
           <div
             className={cn(

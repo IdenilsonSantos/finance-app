@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { api } from "@/lib/api/client";
 import { TransactionResponse, BankAccountResponse } from "@/types/api";
@@ -30,57 +30,51 @@ export interface UpdateTransactionPayload {
 export function useTransactions() {
   const { data: session } = useSession();
   const workspaceId = session?.workspaceId;
+  const queryClient = useQueryClient();
 
-  const [transactions, setTransactions] = useState<TransactionResponse[]>([]);
-  const [bankAccounts, setBankAccounts] = useState<BankAccountResponse[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const txQuery = useQuery<TransactionResponse[]>({
+    queryKey: ["transactions", workspaceId],
+    queryFn: () => api.get<TransactionResponse[]>("/transactions"),
+    enabled: !!workspaceId,
+  });
 
-  const fetchAll = useCallback(async () => {
-    if (!workspaceId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const [txs, accounts] = await Promise.all([
-        api.get<TransactionResponse[]>("/transactions"),
-        api.get<BankAccountResponse[]>("/bank-accounts"),
-      ]);
-      setTransactions(txs);
-      setBankAccounts(accounts);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Erro ao carregar dados");
-    } finally {
-      setLoading(false);
-    }
-  }, [workspaceId]);
+  const accountsQuery = useQuery<BankAccountResponse[]>({
+    queryKey: ["bank-accounts", workspaceId],
+    queryFn: () => api.get<BankAccountResponse[]>("/bank-accounts"),
+    enabled: !!workspaceId,
+  });
 
-  useEffect(() => {
-    fetchAll();
-  }, [fetchAll]);
+  function invalidate() {
+    queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    queryClient.invalidateQueries({ queryKey: ["bank-accounts"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+  }
 
   async function createTransaction(data: CreateTransactionPayload) {
     await api.post("/transactions", data);
-    await fetchAll();
+    invalidate();
   }
 
   async function updateTransaction(id: string, data: UpdateTransactionPayload) {
     await api.patch(`/transactions/${id}`, data);
-    await fetchAll();
+    invalidate();
   }
 
   async function deleteTransaction(id: string) {
     await api.delete(`/transactions/${id}`);
-    await fetchAll();
+    invalidate();
   }
 
   return {
-    transactions,
-    bankAccounts,
-    loading,
-    error,
+    transactions: txQuery.data ?? [],
+    bankAccounts: accountsQuery.data ?? [],
+    loading: txQuery.isLoading || accountsQuery.isLoading,
+    error: txQuery.error
+      ? (txQuery.error instanceof Error ? txQuery.error.message : "Erro ao carregar dados")
+      : null,
     createTransaction,
     updateTransaction,
     deleteTransaction,
-    refetch: fetchAll,
+    refetch: () => invalidate(),
   };
 }

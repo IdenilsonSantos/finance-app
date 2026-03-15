@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   ReceiptText,
   Wallet,
+  Target,
   Settings,
   LogOut,
   ChevronLeft,
@@ -36,6 +37,7 @@ const Sidebar = () => {
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/transactions", label: "Transações", icon: ReceiptText },
     { href: "/wallets", label: "Carteiras", icon: Wallet },
+    { href: "/goals", label: "Metas", icon: Target },
     { href: "/settings", label: "Configurações", icon: Settings },
   ];
 
