@@ -12,6 +12,7 @@ import {
   CalendarDays,
   LayoutGrid,
   ListFilter,
+  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Header } from "@/components/Header";
@@ -24,10 +25,14 @@ import { CATEGORY_STYLES } from "@/lib/categories";
 import { FilterTabs } from "@/components/ui/FilterTabs";
 import { TransactionsTable } from "@/components/transactions/TransactionsTable";
 import { TransactionFormDialog } from "@/components/transactions/TransactionFormDialog";
+import { ScheduledTransactionFormDialog } from "@/components/transactions/ScheduledTransactionFormDialog";
+import { ScheduledTransactionsView } from "@/components/transactions/ScheduledTransactionsView";
+import { ImportStatementDialog } from "@/components/transactions/ImportStatementDialog";
 import { useTransactions } from "@/hooks/useTransactions";
+import { useScheduledTransactions } from "@/hooks/useScheduledTransactions";
 import { getCategoryStyle } from "@/lib/categories";
 import { formatCurrency } from "@/lib/format";
-import { TransactionResponse } from "@/types/api";
+import { TransactionResponse, ScheduledTransactionResponse } from "@/types/api";
 import { cn } from "@/lib/utils";
 
 function Pulse({ className }: { className?: string }) {
@@ -115,7 +120,16 @@ export default function TransactionsPage() {
     createTransaction,
     updateTransaction,
     deleteTransaction,
+    refetch,
   } = useTransactions();
+
+  const {
+    scheduled,
+    createScheduledTransaction,
+    updateScheduledTransaction,
+    deleteScheduledTransaction,
+    executeScheduledTransaction,
+  } = useScheduledTransactions();
 
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
@@ -127,6 +141,9 @@ export default function TransactionsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<TransactionResponse | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [scheduledDialogOpen, setScheduledDialogOpen] = useState(false);
+  const [editingScheduled, setEditingScheduled] = useState<ScheduledTransactionResponse | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [accountFilter, setAccountFilter] = useState<string>("all");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "highest" | "lowest">("newest");
@@ -211,6 +228,24 @@ export default function TransactionsPage() {
     return list;
   }, [currentMonthTxs, selectedDay, typeFilter, categoryFilter, accountFilter, sortOrder, search, bankAccounts]);
 
+  const filteredItems = useMemo(() =>
+    filtered.map((tx) => {
+      const account = bankAccounts.find((a) => a.id === tx.bankAccountId);
+      return {
+        id: tx.id,
+        amount: tx.amount,
+        type: tx.type,
+        category: tx.category,
+        description: tx.description,
+        beneficiary: tx.beneficiary,
+        paymentMethod: tx.paymentMethod,
+        date: tx.date,
+        bankAccountName: account?.name ?? null,
+        bankAccountColor: account?.color ?? null,
+      };
+    }),
+  [filtered, bankAccounts]);
+
   function prevMonth() {
     setSelectedMonth(new Date(year, month - 1, 1));
     setSelectedDay(null);
@@ -245,13 +280,32 @@ export default function TransactionsPage() {
         title="Transações"
         subtitle="Gerencie suas receitas e despesas"
         actions={
-          <Button
-            onClick={openCreate}
-            className="bg-[#1E1E2D] text-white hover:bg-slate-700 font-semibold rounded-2xl gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Nova transação
-          </Button>
+          <div className="flex items-center gap-2">
+            {typeFilter !== "scheduled" && (
+              <Button
+                variant="outline"
+                onClick={() => setImportOpen(true)}
+                className="font-semibold rounded-2xl gap-2 border-slate-200 text-slate-700 hover:bg-slate-50"
+              >
+                <Upload className="w-4 h-4" />
+                Importar extrato
+              </Button>
+            )}
+            <Button
+              onClick={() => {
+                if (typeFilter === "scheduled") {
+                  setEditingScheduled(null);
+                  setScheduledDialogOpen(true);
+                } else {
+                  openCreate();
+                }
+              }}
+              className="bg-[#1E1E2D] text-white hover:bg-slate-700 font-semibold rounded-2xl gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              {typeFilter === "scheduled" ? "Novo agendamento" : "Nova transação"}
+            </Button>
+          </div>
         }
       />
 
@@ -460,15 +514,17 @@ export default function TransactionsPage() {
               </div>
             </div>
 
-            <div className="px-6 py-4 border-b border-slate-50">
-              <MonthDateStrip
-                selectedMonth={selectedMonth}
-                selectedDay={selectedDay}
-                activeDates={currentMonthTxs.map((tx) => tx.date)}
-                onMonthChange={setSelectedMonth}
-                onDayChange={setSelectedDay}
-              />
-            </div>
+            {typeFilter !== "scheduled" && (
+              <div className="px-6 py-4 border-b border-slate-50">
+                <MonthDateStrip
+                  selectedMonth={selectedMonth}
+                  selectedDay={selectedDay}
+                  activeDates={currentMonthTxs.map((tx) => tx.date)}
+                  onMonthChange={setSelectedMonth}
+                  onDayChange={setSelectedDay}
+                />
+              </div>
+            )}
 
             <div className="px-6 py-3 border-b border-slate-50">
               <FilterTabs
@@ -481,28 +537,35 @@ export default function TransactionsPage() {
               />
             </div>
 
-            <TransactionsTable
-              transactions={filtered}
-              bankAccounts={bankAccounts}
-              deletingId={deletingId}
-              onEdit={openEdit}
-              onDelete={handleDelete}
-              emptyIcon={TYPE_TABS.find((t) => t.id === typeFilter)?.icon}
-              emptyMessage={
-                typeFilter === "income" ? "Nenhuma receita encontrada" :
-                typeFilter === "expense" ? "Nenhuma despesa encontrada" :
-                typeFilter === "transfer" ? "Nenhuma transferência encontrada" :
-                typeFilter === "scheduled" ? "Nenhum agendamento encontrado" :
-                "Nenhuma transação encontrada"
-              }
-              emptySubtitle={
-                typeFilter === "income" ? "Tente ajustar os filtros ou crie uma nova receita" :
-                typeFilter === "expense" ? "Tente ajustar os filtros ou crie uma nova despesa" :
-                typeFilter === "transfer" ? "Tente ajustar os filtros ou registre uma transferência" :
-                typeFilter === "scheduled" ? "Tente ajustar os filtros ou agende uma transação" :
-                "Tente ajustar os filtros ou crie uma nova transação"
-              }
-            />
+            {typeFilter === "scheduled" ? (
+              <ScheduledTransactionsView
+                scheduled={scheduled}
+                bankAccounts={bankAccounts}
+                onEdit={(item) => { setEditingScheduled(item); setScheduledDialogOpen(true); }}
+                onDelete={deleteScheduledTransaction}
+                onExecute={executeScheduledTransaction}
+              />
+            ) : (
+              <TransactionsTable
+                transactions={filteredItems}
+                deletingId={deletingId}
+                onEdit={(id) => { const tx = transactions.find((t) => t.id === id); if (tx) openEdit(tx); }}
+                onDelete={handleDelete}
+                emptyIcon={TYPE_TABS.find((t) => t.id === typeFilter)?.icon}
+                emptyMessage={
+                  typeFilter === "income" ? "Nenhuma receita encontrada" :
+                  typeFilter === "expense" ? "Nenhuma despesa encontrada" :
+                  typeFilter === "transfer" ? "Nenhuma transferência encontrada" :
+                  "Nenhuma transação encontrada"
+                }
+                emptySubtitle={
+                  typeFilter === "income" ? "Tente ajustar os filtros ou crie uma nova receita" :
+                  typeFilter === "expense" ? "Tente ajustar os filtros ou crie uma nova despesa" :
+                  typeFilter === "transfer" ? "Tente ajustar os filtros ou registre uma transferência" :
+                  "Tente ajustar os filtros ou crie uma nova transação"
+                }
+              />
+            )}
           </div>
         )}
       </div>
@@ -515,6 +578,30 @@ export default function TransactionsPage() {
         onCreate={createTransaction}
         onUpdate={updateTransaction}
         onDelete={editing ? deleteTransaction : undefined}
+        onCreateScheduled={async (data) => {
+          await createScheduledTransaction(data);
+          setTypeFilter("scheduled");
+        }}
+      />
+
+      <ScheduledTransactionFormDialog
+        open={scheduledDialogOpen}
+        onOpenChange={(o) => { setScheduledDialogOpen(o); if (!o) setEditingScheduled(null); }}
+        item={editingScheduled}
+        bankAccounts={bankAccounts}
+        onCreate={async (data) => {
+          await createScheduledTransaction(data);
+          setTypeFilter("scheduled");
+        }}
+        onUpdate={updateScheduledTransaction}
+        onDelete={deleteScheduledTransaction}
+      />
+
+      <ImportStatementDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        bankAccounts={bankAccounts}
+        onSuccess={refetch}
       />
     </div>
   );

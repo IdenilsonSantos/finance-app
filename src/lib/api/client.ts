@@ -91,6 +91,32 @@ async function request<T>(
   return response.json();
 }
 
+async function upload<T>(path: string, formData: FormData): Promise<T> {
+  const session = await getSession();
+  const headers: Record<string, string> = {};
+
+  if (session?.accessToken) {
+    headers["Authorization"] = `Bearer ${session.accessToken}`;
+  }
+  if (session?.workspaceId) {
+    headers["x-workspace-id"] = session.workspaceId;
+  }
+
+  const response = await fetch(`${BASE_URL}${path}`, {
+    method: "POST",
+    headers,
+    body: formData,
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: "Erro desconhecido" }));
+    throw new Error(error.message ?? `HTTP ${response.status}`);
+  }
+
+  return response.json();
+}
+
 export const api = {
   get: <T>(path: string, options?: RequestOptions) =>
     request<T>(path, { ...options, method: "GET" }),
@@ -103,4 +129,6 @@ export const api = {
 
   delete: <T>(path: string, options?: RequestOptions) =>
     request<T>(path, { ...options, method: "DELETE" }),
+
+  upload: <T>(path: string, formData: FormData) => upload<T>(path, formData),
 };

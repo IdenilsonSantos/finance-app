@@ -3,9 +3,6 @@
 import { useState, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { FilterTabs } from "@/components/ui/FilterTabs";
-import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import {
   ArrowRight,
@@ -15,16 +12,16 @@ import {
   LayoutGrid,
   TrendingUp,
   TrendingDown,
-  User,
-  Search,
-  ListFilter,
+  RepeatIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { DashboardTransaction, DashboardScheduledTransaction } from "@/types/api";
 import { formatCurrency } from "@/lib/format";
-import { getCategoryStyle, CATEGORY_STYLES } from "@/lib/categories";
+import { getCategoryStyle } from "@/lib/categories";
+import { TransactionsTable } from "@/components/transactions/TransactionsTable";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const TABS = [
   { id: "recent", label: "Transações Recentes", icon: HistoryIcon },
@@ -41,30 +38,15 @@ const TYPE_TABS = [
 
 type TypeFilter = (typeof TYPE_TABS)[number]["id"];
 
-const FREQUENCY_OPTIONS = [
-  { value: "all", label: "Todas" },
-  { value: "daily", label: "Diário" },
-  { value: "weekly", label: "Semanal" },
-  { value: "monthly", label: "Mensal" },
-  { value: "yearly", label: "Anual" },
-];
-
 const FREQUENCY_LABELS: Record<string, string> = {
+  once: "Uma vez",
   daily: "Diário",
   weekly: "Semanal",
   monthly: "Mensal",
   yearly: "Anual",
 };
 
-function initials(text: string) {
-  return text
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase();
-}
+const CARD_HEIGHT = 420;
 
 interface RecentTransactionsProps {
   transactions: DashboardTransaction[];
@@ -74,53 +56,39 @@ interface RecentTransactionsProps {
 export function RecentTransactions({ transactions, scheduled }: RecentTransactionsProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>("recent");
-
-  // Scheduled filters
-  const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
-  const [categoryFilter, setCategoryFilter] = useState("all");
-  const [frequencyFilter, setFrequencyFilter] = useState("all");
-
-  const hasActiveFilters = typeFilter !== "all" || categoryFilter !== "all" || frequencyFilter !== "all";
-
-  function clearFilters() {
-    setTypeFilter("all");
-    setCategoryFilter("all");
-    setFrequencyFilter("all");
-    setSearch("");
-  }
 
   const filteredScheduled = useMemo(() => {
-    return scheduled.filter((s) => {
-      if (typeFilter !== "all" && s.type !== typeFilter) return false;
-      if (categoryFilter !== "all" && s.category !== categoryFilter) return false;
-      if (frequencyFilter !== "all" && s.frequency !== frequencyFilter) return false;
-      if (search) {
-        const q = search.toLowerCase();
-        const catLabel = getCategoryStyle(s.category).label.toLowerCase();
-        return (
-          (s.description ?? "").toLowerCase().includes(q) ||
-          catLabel.includes(q) ||
-          (s.bankAccountName ?? "").toLowerCase().includes(q)
-        );
-      }
-      return true;
-    });
-  }, [scheduled, typeFilter, categoryFilter, frequencyFilter, search]);
+    if (typeFilter === "all") return scheduled;
+    return scheduled.filter((s) => s.type === typeFilter);
+  }, [scheduled, typeFilter]);
 
-  const isRecentEmpty = transactions.length === 0;
-  const isScheduledEmpty = filteredScheduled.length === 0;
+  // Map DashboardTransaction → TransactionItem (same shape TransactionsTable expects)
+  const transactionItems = useMemo(() =>
+    transactions.map((tx) => ({
+      id: tx.id,
+      amount: tx.amount,
+      type: tx.type,
+      category: tx.category,
+      description: tx.description,
+      beneficiary: tx.beneficiary,
+      paymentMethod: tx.paymentMethod,
+      date: tx.date,
+      bankAccountName: tx.bankAccountName,
+      bankAccountColor: tx.bankAccountColor,
+    })),
+  [transactions]);
 
   return (
     <Card className="shadow-sm border-none bg-white rounded-3xl overflow-hidden">
-      {/* Top bar */}
-      <div className="px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-50">
+      {/* Header */}
+      <div className="px-6 py-5 flex items-center justify-between border-b border-slate-50">
         <FilterTabs
           tabs={TABS}
           value={activeTab}
           onChange={(v) => {
             setActiveTab(v as TabId);
-            clearFilters();
+            setTypeFilter("all");
           }}
         />
         <button
@@ -134,263 +102,122 @@ export function RecentTransactions({ transactions, scheduled }: RecentTransactio
         </button>
       </div>
 
-      {/* Scheduled toolbar: type tabs + search + filter popover */}
-      {activeTab === "scheduled" && (
-        <div className="px-6 py-3 border-b border-slate-50 flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          <FilterTabs
-            tabs={TYPE_TABS}
-            value={typeFilter}
-            onChange={(v) => setTypeFilter(v as TypeFilter)}
-          />
-          <div className="flex items-center gap-2 ml-auto w-full sm:w-auto">
-            <div className="relative flex-1 sm:w-52">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-              <Input
-                placeholder="Buscar agendamento..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9 h-9 text-sm rounded-2xl border border-slate-200"
-              />
-            </div>
-            <Popover>
-              <PopoverTrigger asChild>
-                <button
-                  className={cn(
-                    "relative flex items-center justify-center w-9 h-9 rounded-2xl border transition-colors shrink-0",
-                    hasActiveFilters
-                      ? "bg-[#1E1E2D] text-white border-[#1E1E2D]"
-                      : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50",
-                  )}
-                >
-                  <ListFilter className="w-4 h-4" />
-                  {hasActiveFilters && (
-                    <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500" />
-                  )}
-                </button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-64 p-4 space-y-4">
-                <div className="space-y-1.5">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Categoria</p>
-                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                    <SelectTrigger className="h-10 rounded-xl text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas</SelectItem>
-                      {Object.entries(CATEGORY_STYLES)
-                        .filter(([key]) => key !== "outros")
-                        .map(([key, style]) => (
-                          <SelectItem key={key} value={key}>{style.label}</SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Frequência</p>
-                  <Select value={frequencyFilter} onValueChange={setFrequencyFilter}>
-                    <SelectTrigger className="h-10 rounded-xl text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {FREQUENCY_OPTIONS.map((o) => (
-                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {hasActiveFilters && (
-                  <button
-                    onClick={() => { setCategoryFilter("all"); setFrequencyFilter("all"); setTypeFilter("all"); }}
-                    className="w-full text-sm font-semibold text-red-500 hover:text-red-600 hover:bg-red-50 rounded-xl py-2 transition-colors"
-                  >
-                    Limpar Filtros
-                  </button>
-                )}
-              </PopoverContent>
-            </Popover>
+      {/* Fixed-height body */}
+      <div className="h-[420px] flex flex-col">
+        {activeTab === "scheduled" && (
+          <div className="px-6 py-3 border-b border-slate-50 shrink-0">
+            <FilterTabs
+              tabs={TYPE_TABS}
+              value={typeFilter}
+              onChange={(v) => setTypeFilter(v as TypeFilter)}
+            />
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Table */}
-      {activeTab === "recent" ? (
-        isRecentEmpty ? (
-          <EmptyState icon={FileText} message="Nenhuma transação encontrada" subtitle="Registre seus ganhos e gastos para visualizar aqui" />
-        ) : (
-          <TableWrapper>
-            <colgroup>
-              <col />
-              <col className="hidden sm:table-column" style={{ width: 160 }} />
-              <col className="hidden md:table-column" style={{ width: 160 }} />
-              <col style={{ width: 130 }} />
-              <col className="hidden lg:table-column" style={{ width: 110 }} />
-            </colgroup>
-            <thead>
-              <tr className="border-b border-slate-100">
-                <Th>Descrição</Th>
-                <Th className="hidden sm:table-cell">Categoria</Th>
-                <Th className="hidden md:table-cell">Conta</Th>
-                <Th className="text-right pr-6">Valor</Th>
-                <Th className="hidden lg:table-cell">Data</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {transactions.map((tx) => {
-                const style = getCategoryStyle(tx.category);
-                return (
-                  <tr key={tx.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
-                    <td className="pl-6 pr-4 py-4 align-middle">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full border border-slate-200 bg-white flex items-center justify-center shrink-0">
-                          {tx.description ? (
-                            <span className="text-[11px] font-bold text-slate-600 uppercase leading-none">
-                              {initials(tx.description)}
-                            </span>
-                          ) : (
-                            <User className="w-4 h-4 text-slate-400" />
-                          )}
-                        </div>
-                        <p className="font-semibold text-slate-800 truncate max-w-[180px]">
-                          {tx.description || <span className="text-slate-300 font-normal italic">—</span>}
-                        </p>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 align-middle hidden sm:table-cell">
-                      <span
-                        className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold whitespace-nowrap"
-                        style={{ backgroundColor: style.color + "22", color: style.color }}
-                      >
-                        {style.label}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 align-middle hidden md:table-cell">
-                      {tx.bankAccountName ? (
-                        <span className="text-xs text-slate-500 font-medium truncate block max-w-[140px]">
-                          {tx.bankAccountName}
-                        </span>
-                      ) : (
-                        <span className="text-slate-300 text-sm">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 pr-6 py-4 align-middle text-right">
-                      <span className={cn("font-bold tabular-nums text-sm whitespace-nowrap", tx.type === "income" ? "text-emerald-600" : "text-red-600")}>
-                        {tx.type === "income" ? "+ " : "- "}{formatCurrency(tx.amount)}
-                      </span>
-                    </td>
-                    <td className="pl-4 pr-6 py-4 align-middle hidden lg:table-cell">
-                      <span className="text-xs text-slate-500 whitespace-nowrap">
-                        {format(new Date(tx.date + "T12:00:00"), "dd 'de' MMM.", { locale: ptBR })}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </TableWrapper>
-        )
-      ) : (
-        isScheduledEmpty ? (
+        {activeTab === "recent" ? (
+          <TransactionsTable
+            transactions={transactionItems}
+            simple
+            tableHeight={CARD_HEIGHT}
+            emptyIcon={FileText}
+            emptyMessage="Nenhuma transação encontrada"
+            emptySubtitle="Registre seus ganhos e gastos para visualizar aqui"
+          />
+        ) : filteredScheduled.length === 0 ? (
           <EmptyState
             icon={Calendar}
-            message={hasActiveFilters || search ? "Nenhum agendamento encontrado" : "Nenhum agendamento próximo"}
-            subtitle={hasActiveFilters || search ? "Tente ajustar os filtros ou a busca" : "Agende suas contas futuras para não perder o controle"}
+            message="Nenhum agendamento encontrado"
+            subtitle="Crie transações com data futura para agendar"
           />
         ) : (
-          <TableWrapper>
-            <colgroup>
-              <col />
-              <col className="hidden sm:table-column" style={{ width: 160 }} />
-              <col className="hidden md:table-column" style={{ width: 160 }} />
-              <col style={{ width: 130 }} />
-              <col className="hidden lg:table-column" style={{ width: 110 }} />
-            </colgroup>
-            <thead>
-              <tr className="border-b border-slate-100">
-                <Th>Descrição</Th>
-                <Th className="hidden sm:table-cell">Categoria</Th>
-                <Th className="hidden md:table-cell">Frequência</Th>
-                <Th className="text-right pr-6">Valor</Th>
-                <Th className="hidden lg:table-cell">Próxima Data</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredScheduled.map((s) => {
-                const style = getCategoryStyle(s.category);
-                return (
-                  <tr key={s.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
-                    <td className="pl-6 pr-4 py-4 align-middle">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full border border-slate-200 bg-white flex items-center justify-center shrink-0">
-                          {s.description ? (
-                            <span className="text-[11px] font-bold text-slate-600 uppercase leading-none">
-                              {initials(s.description)}
-                            </span>
-                          ) : (
-                            <User className="w-4 h-4 text-slate-400" />
-                          )}
+          <ScrollArea className="flex-1 min-h-0">
+            <table className="w-full text-sm border-collapse table-fixed">
+              <colgroup>
+                <col />
+                <col className="hidden sm:table-column" style={{ width: 150 }} />
+                <col className="hidden md:table-column" style={{ width: 130 }} />
+                <col style={{ width: 130 }} />
+                <col className="hidden lg:table-column" style={{ width: 130 }} />
+              </colgroup>
+              <thead>
+                <tr className="border-b border-slate-100">
+                  <th className="h-11 pl-6 pr-4 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap sticky top-0 bg-white z-10">
+                    Descrição
+                  </th>
+                  <th className="h-11 px-4 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap hidden sm:table-cell sticky top-0 bg-white z-10">
+                    Categoria
+                  </th>
+                  <th className="h-11 px-4 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap hidden md:table-cell sticky top-0 bg-white z-10">
+                    Frequência
+                  </th>
+                  <th className="h-11 px-4 text-right text-[11px] font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap pr-6 sticky top-0 bg-white z-10">
+                    Valor
+                  </th>
+                  <th className="h-11 pl-4 pr-6 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap hidden lg:table-cell sticky top-0 bg-white z-10">
+                    Próxima Data
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredScheduled.map((s) => {
+                  const style = getCategoryStyle(s.category);
+                  const Icon = style.icon;
+                  return (
+                    <tr key={s.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
+                      <td className="pl-6 pr-4 py-4 align-middle">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div
+                            className="w-9 h-9 rounded-full shrink-0 flex items-center justify-center"
+                            style={{ backgroundColor: style.color + "20" }}
+                          >
+                            <Icon className="w-4 h-4" style={{ color: style.color }} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-slate-800 truncate max-w-[200px]">
+                              {s.description || style.label}
+                            </p>
+                          </div>
                         </div>
-                        <p className="font-semibold text-slate-800 truncate max-w-[180px]">
-                          {s.description || <span className="text-slate-300 font-normal italic">—</span>}
-                        </p>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 align-middle hidden sm:table-cell">
-                      <span
-                        className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold whitespace-nowrap"
-                        style={{ backgroundColor: style.color + "22", color: style.color }}
-                      >
-                        {style.label}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 align-middle hidden md:table-cell">
-                      <span className="text-xs text-slate-500 font-medium">
-                        {FREQUENCY_LABELS[s.frequency] ?? s.frequency}
-                      </span>
-                    </td>
-                    <td className="px-4 pr-6 py-4 align-middle text-right">
-                      <span className={cn("font-bold tabular-nums text-sm whitespace-nowrap", s.type === "income" ? "text-emerald-600" : "text-red-600")}>
-                        {s.type === "income" ? "+ " : "- "}{formatCurrency(s.amount)}
-                      </span>
-                    </td>
-                    <td className="pl-4 pr-6 py-4 align-middle hidden lg:table-cell">
-                      <span className="text-xs text-slate-500 whitespace-nowrap">
-                        {format(new Date(s.nextDate + "T12:00:00"), "dd 'de' MMM.", { locale: ptBR })}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </TableWrapper>
-        )
-      )}
+                      </td>
+                      <td className="px-4 py-4 align-middle hidden sm:table-cell">
+                        <span
+                          className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold whitespace-nowrap"
+                          style={{ backgroundColor: style.color + "22", color: style.color }}
+                        >
+                          {style.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 align-middle hidden md:table-cell">
+                        <span className="inline-flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+                          <RepeatIcon className="w-3 h-3 text-slate-400 shrink-0" />
+                          {FREQUENCY_LABELS[s.frequency] ?? s.frequency}
+                        </span>
+                      </td>
+                      <td className="px-4 pr-6 py-4 align-middle text-right">
+                        <span className={cn("font-bold tabular-nums text-sm whitespace-nowrap", s.type === "income" ? "text-emerald-600" : "text-red-600")}>
+                          {s.type === "income" ? "+ " : "- "}{formatCurrency(s.amount)}
+                        </span>
+                      </td>
+                      <td className="pl-4 pr-6 py-4 align-middle hidden lg:table-cell">
+                        <span className="text-xs text-slate-500 whitespace-nowrap">
+                          {format(new Date(s.nextDate + "T12:00:00"), "dd 'de' MMM.", { locale: ptBR })}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </ScrollArea>
+        )}
+      </div>
     </Card>
-  );
-}
-
-function TableWrapper({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="overflow-y-auto" style={{ maxHeight: 420 }}>
-      <table className="w-full text-sm border-collapse table-fixed">
-        {children}
-      </table>
-    </div>
-  );
-}
-
-function Th({ children, className }: { children?: React.ReactNode; className?: string }) {
-  return (
-    <th className={cn("h-11 pl-6 pr-4 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap sticky top-0 bg-white z-10", className)}>
-      {children}
-    </th>
   );
 }
 
 function EmptyState({ icon: Icon, message, subtitle }: { icon: React.ElementType; message: string; subtitle: string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+    <div className="flex flex-col items-center justify-center gap-3 text-center px-6 py-16">
       <div className="w-14 h-14 rounded-full bg-slate-50 flex items-center justify-center">
         <Icon className="w-7 h-7 text-slate-300" />
       </div>

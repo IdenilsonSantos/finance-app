@@ -1,3 +1,20 @@
+// Scheduled Transactions
+
+export interface ScheduledTransactionResponse {
+  id: string;
+  workspaceId: string;
+  bankAccountId: string;
+  amount: number;
+  type: "income" | "expense";
+  description: string | null;
+  category: string;
+  frequency: "once" | "daily" | "weekly" | "monthly" | "yearly";
+  nextDate: string;
+  endDate: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Goals
 
 export interface GoalResponse {
@@ -127,10 +144,13 @@ export interface DashboardTransaction {
   amount: number;
   type: "income" | "expense";
   category: string;
-  description: string;
+  description: string | null;
+  beneficiary: string | null;
+  paymentMethod: string | null;
   date: string;
   bankAccountId: string;
   bankAccountName: string | null;
+  bankAccountColor: string | null;
   createdAt: string;
 }
 

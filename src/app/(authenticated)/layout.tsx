@@ -4,6 +4,7 @@ import { useSession, signOut } from "next-auth/react";
 import { SidebarProvider } from "@/components/providers/SidebarContext";
 import { WorkspacesProvider } from "@/components/providers/WorkspacesContext";
 import { NotificationsProvider } from "@/components/providers/NotificationsContext";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import Sidebar from "@/components/Sidebar";
 import MobileHeader from "@/components/MobileHeader";
 import { Building2, Loader2, LogIn, RefreshCw } from "lucide-react";
@@ -76,6 +77,7 @@ export default function AuthenticatedLayout({
   }
 
   return (
+    <TooltipProvider delayDuration={300}>
     <WorkspacesProvider>
       <NotificationsProvider>
       <SidebarProvider>
@@ -89,5 +91,6 @@ export default function AuthenticatedLayout({
       </SidebarProvider>
       </NotificationsProvider>
     </WorkspacesProvider>
+    </TooltipProvider>
   );
 }

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, CheckCircle, Trash2, QrCode, CreditCard, Wallet, Banknote, ArrowLeftRight, Barcode, Landmark } from "lucide-react";
+import { Loader2, CheckCircle, Trash2, QrCode, CreditCard, Wallet, Banknote, ArrowLeftRight, Barcode, Landmark, CalendarClock, Plus } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -38,10 +38,22 @@ import {
   CreateTransactionPayload,
   UpdateTransactionPayload,
 } from "@/hooks/useTransactions";
+import { CreateScheduledTransactionPayload } from "@/hooks/useScheduledTransactions";
+import { WalletFormDialog } from "@/components/wallets/WalletFormDialog";
+import { CreateWalletPayload, UpdateWalletPayload } from "@/hooks/useWallets";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { api } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
-// Module-level constants — never recreated on render
+const FREQUENCIES = [
+  { value: "once",    label: "Uma vez" },
+  { value: "daily",   label: "Diário" },
+  { value: "weekly",  label: "Semanal" },
+  { value: "monthly", label: "Mensal" },
+  { value: "yearly",  label: "Anual" },
+] as const;
+
 const schema = z.object({
   bankAccountId: z.string().min(1, "Selecione uma conta"),
   amount: z
@@ -54,6 +66,8 @@ const schema = z.object({
   category: z.string().min(1, "Selecione uma categoria"),
   paymentMethod: z.string().optional(),
   date: z.string().min(1, "Informe a data"),
+  frequency: z.enum(["once", "daily", "weekly", "monthly", "yearly"]).optional(),
+  endDate: z.string().optional(),
 });
 
 const resolver = zodResolver(schema);
@@ -86,6 +100,7 @@ interface TransactionFormDialogProps {
   onCreate: (data: CreateTransactionPayload) => Promise<void>;
   onUpdate: (id: string, data: UpdateTransactionPayload) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
+  onCreateScheduled?: (data: CreateScheduledTransactionPayload) => Promise<void>;
 }
 
 interface TransactionFormProps {
@@ -94,6 +109,7 @@ interface TransactionFormProps {
   onCreate: (data: CreateTransactionPayload) => Promise<void>;
   onUpdate: (id: string, data: UpdateTransactionPayload) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
+  onCreateScheduled?: (data: CreateScheduledTransactionPayload) => Promise<void>;
   onClose: () => void;
 }
 
@@ -103,9 +119,12 @@ function TransactionForm({
   onCreate,
   onUpdate,
   onDelete,
+  onCreateScheduled,
   onClose,
 }: TransactionFormProps) {
   const isEdit = !!transaction;
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
   const form = useForm<FormValues>({
     resolver,
@@ -129,16 +148,32 @@ function TransactionForm({
           category: "",
           paymentMethod: "",
           date: new Date().toISOString().slice(0, 10),
+          frequency: "monthly",
         },
   });
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [walletDialogOpen, setWalletDialogOpen] = useState(false);
+  const [extraAccounts, setExtraAccounts] = useState<BankAccountResponse[]>([]);
+  const allAccounts = [
+    ...bankAccounts,
+    ...extraAccounts.filter((e) => !bankAccounts.some((b) => b.id === e.id)),
+  ];
   const isSubmitting = form.formState.isSubmitting;
   const currentType = form.watch("type");
+  const currentDate = form.watch("date");
+  const currentFrequency = form.watch("frequency");
+  const isScheduled = !isEdit && !!onCreateScheduled && !!currentDate && currentDate > today;
+  const isRecurring = isScheduled && currentFrequency && currentFrequency !== "once";
 
   async function onSubmit(values: FormValues) {
     const amount = parseFloat(values.amount);
+    const freq = values.frequency ?? "monthly";
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const isFutureDate = !!values.date && values.date > todayStr;
+    const shouldSchedule = !isEdit && !!onCreateScheduled && isFutureDate;
     try {
       if (isEdit && transaction) {
         await onUpdate(transaction.id, {
@@ -152,6 +187,18 @@ function TransactionForm({
           date: values.date,
         });
         toast.success("Transação atualizada");
+      } else if (shouldSchedule && onCreateScheduled) {
+        await onCreateScheduled({
+          bankAccountId: values.bankAccountId,
+          amount,
+          type: values.type,
+          description: values.description || undefined,
+          category: values.category,
+          frequency: freq as "once" | "daily" | "weekly" | "monthly" | "yearly",
+          nextDate: values.date,
+          endDate: values.endDate || undefined,
+        });
+        toast.success("Agendamento criado");
       } else {
         await onCreate({
           bankAccountId: values.bankAccountId,
@@ -167,7 +214,7 @@ function TransactionForm({
       }
       onClose();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Erro ao salvar transação");
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar");
     }
   }
 
@@ -187,6 +234,7 @@ function TransactionForm({
   }
 
   return (
+    <>
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         {/* Type toggle */}
@@ -266,30 +314,111 @@ function TransactionForm({
           />
         </div>
 
-        {/* Conta Bancária */}
+        {isScheduled && (
+          <div className="flex items-start gap-2.5 rounded-2xl bg-blue-50 border border-blue-100 px-4 py-3">
+            <CalendarClock className="w-4 h-4 text-blue-500 shrink-0 mt-px" />
+            <p className="text-xs text-blue-700 font-medium leading-relaxed">
+              Data futura detectada — selecione a repetição abaixo.
+            </p>
+          </div>
+        )}
+
+        {isScheduled && (
+          <div className="grid grid-cols-2 gap-3">
+            <FormField
+              control={form.control}
+              name="frequency"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Repetição</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value ?? ""}>
+                    <FormControl>
+                      <SelectTrigger disabled={isSubmitting}>
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {FREQUENCIES.map((f) => (
+                        <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {isRecurring && (
+              <FormField
+                control={form.control}
+                name="endDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Término <span className="text-slate-400 font-normal">(opcional)</span>
+                    </FormLabel>
+                    <FormControl>
+                      <DatePicker
+                        value={field.value ?? ""}
+                        onChange={field.onChange}
+                        disabled={isSubmitting}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+          </div>
+        )}
+
         <FormField
           control={form.control}
           name="bankAccountId"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Conta Bancária</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value}>
-                <FormControl>
-                  <SelectTrigger disabled={isSubmitting}>
-                    <SelectValue placeholder="Selecione a conta de origem/destino" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {bankAccounts.map((account) => (
-                    <SelectItem key={account.id} value={account.id}>
-                      <span className="flex items-center gap-2">
-                        <Landmark className="w-3.5 h-3.5 shrink-0" style={{ color: account.color }} />
-                        {account.name}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex gap-2">
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger disabled={isSubmitting} className="flex-1">
+                      <SelectValue placeholder="Selecione a conta">
+                        {field.value && (
+                          <span className="flex items-center gap-2">
+                            <Landmark className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+                            {allAccounts.find((a) => a.id === field.value)?.name}
+                          </span>
+                        )}
+                      </SelectValue>
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {allAccounts.map((account) => (
+                      <SelectItem key={account.id} value={account.id}>
+                        <span className="flex items-center gap-2">
+                          <Landmark className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+                          {account.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      disabled={isSubmitting}
+                      onClick={() => setWalletDialogOpen(true)}
+                      className="h-10 w-10 rounded-xl shrink-0"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Criar nova conta bancária</TooltipContent>
+                </Tooltip>
+              </div>
               <FormMessage />
             </FormItem>
           )}
@@ -314,26 +443,26 @@ function TransactionForm({
           )}
         />
 
-        {/* Beneficiário */}
-        <FormField
-          control={form.control}
-          name="beneficiary"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Beneficiário / Destinatário</FormLabel>
-              <FormControl>
-                <Input
-                  placeholder="Ex: Supermercado X"
-                  disabled={isSubmitting}
-                  {...field}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {!isScheduled && (
+          <FormField
+            control={form.control}
+            name="beneficiary"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Beneficiário / Destinatário</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="Ex: Supermercado X"
+                    disabled={isSubmitting}
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
 
-        {/* Categoria + Pagamento */}
         <div className="grid grid-cols-2 gap-3">
           <FormField
             control={form.control}
@@ -363,33 +492,35 @@ function TransactionForm({
             )}
           />
 
-          <FormField
-            control={form.control}
-            name="paymentMethod"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Pagamento</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger disabled={isSubmitting}>
-                      <SelectValue placeholder="Método" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {PAYMENT_METHODS.map(({ value, label, Icon, color }) => (
-                      <SelectItem key={value} value={value}>
-                        <span className="flex items-center gap-2">
-                          <Icon className="w-3.5 h-3.5 shrink-0" style={{ color }} />
-                          {label}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {!isScheduled && (
+            <FormField
+              control={form.control}
+              name="paymentMethod"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Pagamento</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger disabled={isSubmitting}>
+                        <SelectValue placeholder="Método" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {PAYMENT_METHODS.map(({ value, label, Icon, color }) => (
+                        <SelectItem key={value} value={value}>
+                          <span className="flex items-center gap-2">
+                            <Icon className="w-3.5 h-3.5 shrink-0" style={{ color }} />
+                            {label}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
         </div>
 
         {/* Save */}
@@ -402,8 +533,8 @@ function TransactionForm({
             <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
             <>
-              <CheckCircle className="w-4 h-4" />
-              {isEdit ? "Salvar Alterações" : "Criar Transação"}
+              {isScheduled ? <CalendarClock className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
+              {isEdit ? "Salvar Alterações" : isScheduled ? "Agendar" : "Criar Transação"}
             </>
           )}
         </Button>
@@ -432,6 +563,20 @@ function TransactionForm({
         )}
       </form>
     </Form>
+
+    <WalletFormDialog
+      open={walletDialogOpen}
+      onOpenChange={setWalletDialogOpen}
+      wallet={null}
+      onCreate={async (data: CreateWalletPayload) => {
+        const created = await api.post<BankAccountResponse>("/bank-accounts", data);
+        setExtraAccounts((prev) => [...prev, created]);
+        form.setValue("bankAccountId", created.id);
+        setWalletDialogOpen(false);
+      }}
+      onUpdate={async (_id: string, _data: UpdateWalletPayload) => {}}
+    />
+    </>
   );
 }
 
@@ -443,6 +588,7 @@ export function TransactionFormDialog({
   onCreate,
   onUpdate,
   onDelete,
+  onCreateScheduled,
 }: TransactionFormDialogProps) {
   const isEdit = !!transaction;
   const typeLabel = isEdit
@@ -471,6 +617,7 @@ export function TransactionFormDialog({
           onCreate={onCreate}
           onUpdate={onUpdate}
           onDelete={onDelete}
+          onCreateScheduled={onCreateScheduled}
           onClose={() => onOpenChange(false)}
         />
       </DialogContent>
