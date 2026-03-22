@@ -3,6 +3,7 @@
 import { useSession, signOut } from "next-auth/react";
 import { SidebarProvider } from "@/components/providers/SidebarContext";
 import { WorkspacesProvider } from "@/components/providers/WorkspacesContext";
+import { NotificationsProvider } from "@/components/providers/NotificationsContext";
 import Sidebar from "@/components/Sidebar";
 import MobileHeader from "@/components/MobileHeader";
 import { Building2, Loader2, LogIn, RefreshCw } from "lucide-react";
@@ -76,6 +77,7 @@ export default function AuthenticatedLayout({
 
   return (
     <WorkspacesProvider>
+      <NotificationsProvider>
       <SidebarProvider>
         <div className="flex w-full h-screen bg-gray-50 text-gray-900 overflow-hidden">
           <Sidebar />
@@ -85,6 +87,7 @@ export default function AuthenticatedLayout({
           </main>
         </div>
       </SidebarProvider>
+      </NotificationsProvider>
     </WorkspacesProvider>
   );
 }

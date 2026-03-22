@@ -474,7 +474,10 @@ export default function TransactionsPage() {
               <FilterTabs
                 tabs={TYPE_TABS}
                 value={typeFilter}
-                onChange={(v) => setTypeFilter(v as TypeFilter)}
+                onChange={(v) => {
+                  setTypeFilter(v as TypeFilter);
+                  if (v === "all") setSelectedDay(null);
+                }}
               />
             </div>
 

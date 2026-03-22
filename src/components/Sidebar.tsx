@@ -8,6 +8,7 @@ import {
   ReceiptText,
   Wallet,
   Target,
+  Bell,
   Settings,
   LogOut,
   ChevronLeft,
@@ -24,6 +25,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useSidebar } from "@/components/providers/SidebarContext";
 import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
+import { useNotificationsContext as useNotifications } from "@/components/providers/NotificationsContext";
 import { signOut, useSession } from "next-auth/react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getInitials } from "@/lib/format";
@@ -32,12 +34,14 @@ const Sidebar = () => {
   const pathname = usePathname();
   const { collapsed, toggleSidebar, isMobileOpen, setMobileOpen } = useSidebar();
   const { data: session } = useSession();
+  const { unreadCount } = useNotifications();
 
   const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/transactions", label: "Transações", icon: ReceiptText },
     { href: "/wallets", label: "Carteiras", icon: Wallet },
     { href: "/goals", label: "Metas", icon: Target },
+    { href: "/notifications", label: "Notificações", icon: Bell, badge: unreadCount },
     { href: "/settings", label: "Configurações", icon: Settings },
   ];
 
@@ -116,6 +120,7 @@ const Sidebar = () => {
           <nav className="flex flex-col gap-3 flex-1 overflow-y-auto md:overflow-visible no-scrollbar">
             {navItems.map((item) => {
               const isActive = pathname === item.href;
+              const badge = "badge" in item ? item.badge : 0;
               const linkEl = (
                 <Link
                   href={item.href}
@@ -128,15 +133,25 @@ const Sidebar = () => {
                     collapsed && "md:justify-center md:px-0 md:hover:bg-gray-50",
                   )}
                 >
-                  <item.icon
-                    size={22}
-                    className={cn(
-                      "shrink-0 transition-colors",
-                      isActive ? "text-[#1E1E2D] stroke-[2.5px]" : "stroke-[2px]",
+                  <div className="relative shrink-0">
+                    <item.icon
+                      size={22}
+                      className={cn(
+                        "transition-colors",
+                        isActive ? "text-[#1E1E2D] stroke-[2.5px]" : "stroke-[2px]",
+                      )}
+                    />
+                    {!!badge && (collapsed && !isMobileOpen) && (
+                      <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500" />
                     )}
-                  />
+                  </div>
                   {(!collapsed || isMobileOpen) && (
-                    <span className="text-[15px]">{item.label}</span>
+                    <span className="text-[15px] flex-1">{item.label}</span>
+                  )}
+                  {(!collapsed || isMobileOpen) && !!badge && (
+                    <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                      {badge > 99 ? "99+" : badge}
+                    </span>
                   )}
                 </Link>
               );

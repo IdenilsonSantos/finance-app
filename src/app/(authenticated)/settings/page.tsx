@@ -727,95 +727,108 @@ function WorkspaceSection() {
 // ================================================================
 // NOTIFICAÇÕES
 // ================================================================
-const NOTIF_KEY = "finance_notif_prefs";
 
 type NotifPrefs = {
-  goalDeadline: boolean;
   goalAchieved: boolean;
+  goalDeadline: boolean;
   scheduledReminder: boolean;
-  monthlySummary: boolean;
-  lowBalance: boolean;
+  transferCreated: boolean;
 };
 
 const DEFAULT_PREFS: NotifPrefs = {
-  goalDeadline: true,
   goalAchieved: true,
+  goalDeadline: true,
   scheduledReminder: true,
-  monthlySummary: false,
-  lowBalance: false,
+  transferCreated: false,
 };
 
 function NotificationsSection() {
   const [prefs, setPrefs] = useState<NotifPrefs>(DEFAULT_PREFS);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(NOTIF_KEY);
-      if (stored) setPrefs(JSON.parse(stored));
-    } catch {}
+    api
+      .get<NotifPrefs>("/notifications/prefs")
+      .then((data) => setPrefs({ ...DEFAULT_PREFS, ...data }))
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (!saved) return;
+    const t = setTimeout(() => setSaved(false), 2000);
+    return () => clearTimeout(t);
+  }, [saved]);
 
   function toggle(key: keyof NotifPrefs) {
     setPrefs((p) => ({ ...p, [key]: !p[key] }));
     setSaved(false);
   }
 
-  function handleSave() {
+  async function handleSave() {
+    setSaving(true);
     try {
-      localStorage.setItem(NOTIF_KEY, JSON.stringify(prefs));
+      await api.patch("/notifications/prefs", prefs);
       setSaved(true);
       toast.success("Preferências salvas");
-      setTimeout(() => setSaved(false), 2000);
     } catch {
       toast.error("Erro ao salvar preferências");
+    } finally {
+      setSaving(false);
     }
   }
 
+  if (loading) {
+    return (
+      <SectionCard title="Preferências de Notificação" description="Controle quais alertas você deseja receber por e-mail">
+        <div className="h-24 flex items-center justify-center">
+          <Loader2 className="w-5 h-5 animate-spin text-slate-300" />
+        </div>
+      </SectionCard>
+    );
+  }
+
   return (
-    <SectionCard title="Preferências de Notificação" description="Controle quais alertas você deseja receber">
-      <NotifRow
-        label="Prazo de metas"
-        description="Avise quando uma meta estiver próxima do vencimento"
-        checked={prefs.goalDeadline}
-        onChange={() => toggle("goalDeadline")}
-      />
+    <SectionCard title="Preferências de Notificação" description="Controle quais alertas você deseja receber por e-mail">
       <NotifRow
         label="Meta alcançada"
-        description="Comemore quando atingir 100% de uma meta"
+        description="Avise quando você atingir 100% de uma meta"
         checked={prefs.goalAchieved}
         onChange={() => toggle("goalAchieved")}
       />
       <NotifRow
-        label="Lembretes de agendamento"
-        description="Notifique sobre transações agendadas próximas"
+        label="Prazo de metas"
+        description="Lembrete diário quando uma meta vence em até 7 dias"
+        checked={prefs.goalDeadline}
+        onChange={() => toggle("goalDeadline")}
+      />
+      <NotifRow
+        label="Transação agendada executada"
+        description="Avise quando uma transação agendada for executada"
         checked={prefs.scheduledReminder}
         onChange={() => toggle("scheduledReminder")}
       />
       <NotifRow
-        label="Resumo mensal"
-        description="Receba um resumo das suas finanças todo mês"
-        checked={prefs.monthlySummary}
-        onChange={() => toggle("monthlySummary")}
-      />
-      <NotifRow
-        label="Saldo baixo"
-        description="Alerte quando o saldo de uma conta estiver crítico"
-        checked={prefs.lowBalance}
-        onChange={() => toggle("lowBalance")}
+        label="Transferência realizada"
+        description="Avise quando uma transferência entre contas for concluída"
+        checked={prefs.transferCreated}
+        onChange={() => toggle("transferCreated")}
       />
 
       <div className="pt-2">
         <Button
           onClick={handleSave}
-          className={cn(
-            "rounded-2xl h-11 font-semibold gap-2 transition-all",
-            saved
-              ? "bg-emerald-500 hover:bg-emerald-600 text-white"
-              : "bg-[#1E1E2D] text-white hover:bg-slate-800",
-          )}
+          disabled={saving}
+          className="rounded-2xl h-11 font-semibold gap-2 bg-[#1E1E2D] text-white hover:bg-slate-800"
         >
-          {saved ? (
+          {saving ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Salvando...
+            </>
+          ) : saved ? (
             <>
               <Check className="w-4 h-4" />
               Salvo!
