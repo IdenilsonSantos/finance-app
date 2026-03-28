@@ -101,7 +101,7 @@ export function ScheduledTransactionFormDialog({
           description: item.description ?? "",
           category: item.category,
           frequency: item.frequency,
-          nextDate: item.nextDate,
+          nextDate: item.nextDate ?? "",
           endDate: item.endDate ?? "",
         }
       : {
