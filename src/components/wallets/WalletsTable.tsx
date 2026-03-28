@@ -77,7 +77,8 @@ export function WalletsTable({ wallets, deletingId, onEdit, onDelete }: WalletsT
   const totalSize = virtualizer.getTotalSize();
 
   return (
-    <div>
+    <div className="overflow-x-auto">
+      <div className="min-w-[380px]">
       {/* Sticky header */}
       <table className="w-full text-sm border-collapse">
         <thead>
@@ -170,7 +171,7 @@ export function WalletsTable({ wallets, deletingId, onEdit, onDelete }: WalletsT
 
                     {/* Actions */}
                     <td className="pr-4 py-4 align-middle w-[80px]">
-                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center justify-end gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                         <Button
                           variant="ghost"
                           size="icon"
@@ -197,6 +198,7 @@ export function WalletsTable({ wallets, deletingId, onEdit, onDelete }: WalletsT
           </table>
         </div>
       </ScrollArea>
+      </div>
 
       <ConfirmDialog
         open={confirmId !== null}

@@ -36,7 +36,7 @@ const TYPE_ICONS: Record<string, LucideIcon> = {
 
 export function Header({ title, subtitle, className, actions }: HeaderProps) {
   const { data: session } = useSession();
-  const { notifications, unreadCount, loading, markAsRead, markAllAsRead } =
+  const { notifications = [], unreadCount, loading, markAsRead, markAllAsRead } =
     useNotifications();
 
   const recentNotifications = notifications.slice(0, 5);
@@ -59,13 +59,13 @@ export function Header({ title, subtitle, className, actions }: HeaderProps) {
             <div className="hidden md:flex items-center gap-3 mr-1">{actions}</div>
           )}
 
-          <div className="hidden md:flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="relative w-9 h-9 rounded-full hover:bg-slate-100 text-slate-500 data-[state=open]:bg-slate-100"
+                  className="hidden md:flex relative w-9 h-9 rounded-full hover:bg-slate-100 text-slate-500 data-[state=open]:bg-slate-100"
                 >
                   <Bell className="w-4 h-4" />
                   {unreadCount > 0 && (
@@ -150,13 +150,13 @@ export function Header({ title, subtitle, className, actions }: HeaderProps) {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <div className="h-6 w-px bg-slate-200 mx-0.5" />
+            <div className="hidden md:block h-6 w-px bg-slate-200 mx-0.5 " />
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="flex items-center gap-2 pl-1 pr-2 sm:pl-2 sm:pr-3 hover:bg-slate-100 rounded-full data-[state=open]:bg-slate-100"
+                  className="hidden md:flex items-center gap-2 pl-1 pr-2 sm:pl-2 sm:pr-3 hover:bg-slate-100 rounded-full data-[state=open]:bg-slate-100"
                 >
                   <Avatar className="w-8 h-8 border border-slate-200">
                     <AvatarImage src={session?.user?.image ?? undefined} />
