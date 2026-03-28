@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { Check, ChevronDown, Plus, Loader2, Building2 } from "lucide-react";
+import { Check, ChevronDown, Plus, Loader2, Building2, Crown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWorkspaces } from "@/hooks/useWorkspaces";
 import { toast } from "sonner";
@@ -109,13 +109,22 @@ export function WorkspaceSwitcher({ collapsed }: WorkspaceSwitcherProps) {
                   {ws.name.charAt(0).toUpperCase()}
                 </span>
               </div>
-              <span className="flex-1 text-sm font-medium text-slate-700 truncate">
-                {ws.name}
-              </span>
+              <div className="flex-1 min-w-0">
+                <span className="block text-sm font-medium text-slate-700 break-words">
+                  {ws.name}
+                </span>
+                {ws.role && ws.role !== "owner" && (
+                  <span className="text-[10px] text-slate-400 font-medium capitalize">
+                    {ws.role === "admin" ? "Admin" : "Membro"}
+                  </span>
+                )}
+              </div>
               {switching === ws.id ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" />
               ) : ws.id === currentWorkspaceId ? (
                 <Check className="w-3.5 h-3.5 text-emerald-500" />
+              ) : ws.role === "owner" ? (
+                <Crown className="w-3 h-3 text-amber-400" />
               ) : null}
             </DropdownMenuItem>
           ))}
