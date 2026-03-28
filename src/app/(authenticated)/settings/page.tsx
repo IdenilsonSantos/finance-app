@@ -20,6 +20,11 @@ import {
   Check,
   LogOut,
   Trash2,
+  Users,
+  UserMinus,
+  Mail,
+  ChevronDown,
+  MoreHorizontal,
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
@@ -39,14 +44,22 @@ import { api } from "@/lib/api/client";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { getInitials } from "@/lib/format";
 import { useWorkspaces } from "@/hooks/useWorkspaces";
+import { useWorkspaceMembers } from "@/hooks/useWorkspaceMembers";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // ---- Tabs ----
 const TABS = [
   { id: "profile", label: "Perfil", icon: User },
   { id: "security", label: "Segurança", icon: Shield },
   { id: "workspace", label: "Workspace", icon: Building2 },
+  { id: "members", label: "Membros", icon: Users },
   { id: "notifications", label: "Notificações", icon: Bell },
 ] as const;
 
@@ -519,6 +532,8 @@ function WorkspaceSection() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const currentWorkspace = workspaces.find((w) => w.id === currentWorkspaceId);
+  const currentRole = currentWorkspace?.role ?? "member";
+  const canEdit = currentRole === "owner" || currentRole === "admin";
 
   const form = useForm<z.infer<typeof workspaceSchema>>({
     resolver: zodResolver(workspaceSchema),
@@ -576,7 +591,7 @@ function WorkspaceSection() {
           <div className="h-16 flex items-center justify-center">
             <Loader2 className="w-5 h-5 animate-spin text-slate-300" />
           </div>
-        ) : (
+        ) : canEdit ? (
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate>
               <FormField
@@ -629,6 +644,20 @@ function WorkspaceSection() {
               </div>
             </form>
           </Form>
+        ) : (
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">Nome do workspace</label>
+              <Input value={currentWorkspace?.name ?? ""} disabled className="bg-slate-50 text-slate-500 cursor-not-allowed" />
+            </div>
+            {currentWorkspace?.slug && (
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-slate-700">Slug</label>
+                <Input value={currentWorkspace.slug} disabled className="bg-slate-50 text-slate-400 cursor-not-allowed font-mono text-sm" />
+              </div>
+            )}
+            <p className="text-xs text-slate-400">Apenas o owner ou admin pode editar este workspace.</p>
+          </div>
         )}
       </SectionCard>
 
@@ -669,9 +698,16 @@ function WorkspaceSection() {
                       {ws.name[0]?.toUpperCase()}
                     </div>
                     <div className="min-w-0">
-                      <p className={cn("text-sm font-semibold truncate", isActive ? "text-white" : "text-slate-800")}>
-                        {ws.name}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className={cn("text-sm font-semibold truncate", isActive ? "text-white" : "text-slate-800")}>
+                          {ws.name}
+                        </p>
+                        {ws.role && ws.role !== "owner" && (
+                          <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0", isActive ? "bg-white/10 text-white/70" : "bg-slate-100 text-slate-500")}>
+                            {ws.role === "admin" ? "Admin" : "Membro"}
+                          </span>
+                        )}
+                      </div>
                       <p className={cn("text-xs truncate font-mono", isActive ? "text-white/50" : "text-slate-400")}>
                         {ws.slug}
                       </p>
@@ -682,14 +718,14 @@ function WorkspaceSection() {
                     <Loader2 className="w-4 h-4 text-slate-400 shrink-0 animate-spin" />
                   ) : isActive ? (
                     <Check className="w-4 h-4 text-white shrink-0" />
-                  ) : (
+                  ) : ws.role === "owner" ? (
                     <button
                       onClick={() => setConfirmDeleteId(ws.id)}
                       className="opacity-0 group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all shrink-0"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
-                  )}
+                  ) : null}
                 </div>
               );
             })}
@@ -846,6 +882,231 @@ function NotificationsSection() {
 }
 
 // ================================================================
+// MEMBROS
+// ================================================================
+
+const ROLE_LABELS: Record<string, string> = {
+  owner: "Owner",
+  admin: "Admin",
+  member: "Membro",
+};
+
+const ROLE_COLORS: Record<string, string> = {
+  owner: "bg-amber-100 text-amber-700",
+  admin: "bg-blue-100 text-blue-700",
+  member: "bg-slate-100 text-slate-600",
+};
+
+function MembersSection() {
+  const { currentWorkspaceId } = useWorkspaces();
+  const {
+    members,
+    loading,
+    currentRole,
+    currentUserId,
+    refetch,
+    inviteMember,
+    removeMember,
+    updateRole,
+  } = useWorkspaceMembers(currentWorkspaceId ?? undefined);
+
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<"admin" | "member">("member");
+  const [inviting, setInviting] = useState(false);
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
+  const canManage = currentRole === "owner" || currentRole === "admin";
+  const isOwner = currentRole === "owner";
+
+  async function handleInvite(e: React.FormEvent) {
+    e.preventDefault();
+    if (!inviteEmail.trim()) return;
+    setInviting(true);
+    try {
+      await inviteMember(inviteEmail.trim(), inviteRole);
+      setInviteEmail("");
+      toast.success(`Convite enviado para ${inviteEmail.trim()}`);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Erro ao enviar convite");
+    } finally {
+      setInviting(false);
+    }
+  }
+
+  async function handleRemove(id: string) {
+    setRemovingId(id);
+    try {
+      await removeMember(id);
+      toast.success("Membro removido");
+      setConfirmRemoveId(null);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Erro ao remover membro");
+    } finally {
+      setRemovingId(null);
+    }
+  }
+
+  async function handleUpdateRole(id: string, role: "admin" | "member") {
+    try {
+      await updateRole(id, role);
+      toast.success("Role atualizado");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Erro ao atualizar role");
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Invite */}
+      {canManage && (
+        <SectionCard title="Convidar Membro" description="Envie um convite por e-mail para adicionar alguém ao workspace">
+          <form onSubmit={handleInvite} className="flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-1">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              <Input
+                type="email"
+                placeholder="email@exemplo.com"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                disabled={inviting}
+                className="pl-9 h-10 text-sm rounded-2xl"
+              />
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 rounded-2xl border-slate-200 font-semibold text-sm gap-2 text-slate-700 shrink-0"
+                >
+                  {ROLE_LABELS[inviteRole]}
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setInviteRole("member")}>Membro</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setInviteRole("admin")}>Admin</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button
+              type="submit"
+              disabled={inviting || !inviteEmail.trim()}
+              className="h-10 px-5 rounded-2xl bg-[#1E1E2D] text-white hover:bg-slate-800 font-semibold text-sm shrink-0"
+            >
+              {inviting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Enviar convite"}
+            </Button>
+          </form>
+        </SectionCard>
+      )}
+
+      {/* Members list */}
+      <SectionCard
+        title="Membros"
+        description={`${members.length} membro${members.length !== 1 ? "s" : ""} neste workspace`}
+      >
+        {loading ? (
+          <div className="space-y-1">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3 px-3 py-3 rounded-2xl">
+                <div className="w-9 h-9 rounded-full bg-slate-100 animate-pulse shrink-0" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-3.5 w-32 bg-slate-100 rounded-full animate-pulse" />
+                  <div className="h-2.5 w-44 bg-slate-100 rounded-full animate-pulse" />
+                </div>
+                <div className="h-5 w-14 bg-slate-100 rounded-full animate-pulse" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-1">
+            {members.map((member) => {
+              const isMe = member.user?.id === currentUserId;
+              const isTargetOwner = member.role === "owner";
+              const canRemove = canManage && !isTargetOwner && !isMe;
+              const canChangeRole = isOwner && !isTargetOwner && !isMe;
+
+              return (
+                <div
+                  key={member.id}
+                  className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-2xl hover:bg-slate-50 transition-colors"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-full bg-[#1E1E2D] flex items-center justify-center text-white text-xs font-bold shrink-0">
+                      {member.user?.name?.[0]?.toUpperCase() ?? "?"}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm font-semibold text-slate-800 truncate">
+                          {member.user?.name ?? "—"}
+                        </p>
+                        {isMe && (
+                          <span className="text-[10px] font-semibold text-slate-400 shrink-0">(você)</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-400 truncate">{member.user?.email ?? "—"}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={cn("text-[10px] font-bold px-2.5 py-1 rounded-full shrink-0", ROLE_COLORS[member.role])}>
+                      {ROLE_LABELS[member.role]}
+                    </span>
+
+                    {(canChangeRole || canRemove) ? (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
+                            <MoreHorizontal className="w-4 h-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {canChangeRole && (
+                            <>
+                              <DropdownMenuItem onClick={() => handleUpdateRole(member.id, "admin")}>
+                                Tornar Admin
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleUpdateRole(member.id, "member")}>
+                                Tornar Membro
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          {canRemove && (
+                            <DropdownMenuItem
+                              onClick={() => setConfirmRemoveId(member.id)}
+                              className="text-red-500 focus:text-red-500 focus:bg-red-50"
+                            >
+                              <UserMinus className="w-3.5 h-3.5 mr-2" />
+                              Remover
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    ) : (
+                      <div className="w-7 h-7 shrink-0" />
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </SectionCard>
+
+      <ConfirmDialog
+        open={confirmRemoveId !== null}
+        onOpenChange={(open) => !open && setConfirmRemoveId(null)}
+        title="Remover membro"
+        description={`"${members.find((m) => m.id === confirmRemoveId)?.user?.name}" será removido do workspace.`}
+        confirmLabel="Remover"
+        onConfirm={() => confirmRemoveId && handleRemove(confirmRemoveId)}
+        loading={removingId !== null}
+      />
+    </div>
+  );
+}
+
+// ================================================================
 // MAIN PAGE
 // ================================================================
 export default function SettingsPage() {
@@ -865,6 +1126,7 @@ export default function SettingsPage() {
         {activeTab === "profile" && <ProfileSection />}
         {activeTab === "security" && <SecuritySection />}
         {activeTab === "workspace" && <WorkspaceSection />}
+        {activeTab === "members" && <MembersSection />}
         {activeTab === "notifications" && <NotificationsSection />}
       </div>
     </div>

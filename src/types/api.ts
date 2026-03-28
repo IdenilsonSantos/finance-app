@@ -86,6 +86,29 @@ export interface WorkspaceResponse {
   id: string;
   name: string;
   slug: string;
+  role?: WorkspaceMemberRole;
+}
+
+export type WorkspaceMemberRole = "owner" | "admin" | "member";
+
+export interface WorkspaceMemberResponse {
+  id: string;
+  role: WorkspaceMemberRole;
+  createdAt: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    image: string | null;
+  } | null;
+}
+
+export interface WorkspaceInviteInfoResponse {
+  workspaceName: string;
+  invitedEmail: string;
+  role: WorkspaceMemberRole;
+  inviterName: string;
+  expiresAt: string;
 }
 
 // Dashboard
