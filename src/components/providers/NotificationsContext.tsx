@@ -5,6 +5,9 @@ import { useNotifications as useNotificationsHook, AppNotification } from "@/hoo
 
 interface NotificationsContextValue {
   notifications: AppNotification[];
+  total: number;
+  page: number;
+  totalPages: number;
   unreadCount: number;
   loading: boolean;
   markAsRead: (id: string) => void;

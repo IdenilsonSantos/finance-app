@@ -17,20 +17,24 @@ export type AppNotification = {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
-export function useNotifications() {
+export function useNotifications(page = 1, limit = 20) {
   const { data: session } = useSession();
   const queryClient = useQueryClient();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [total, setTotal] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const socketRef = useRef<Socket | null>(null);
 
   const fetchNotifications = useCallback(async () => {
     try {
-      const data = await api.get<{ items: AppNotification[]; total: number }>("/notifications");
-      setNotifications(data.items);
+      const data = await api.get<{ data: AppNotification[]; total: number }>(
+        `/notifications?page=${page}&limit=${limit}`,
+      );
+      setNotifications(data.data ?? []);
+      setTotal(data.total ?? 0);
     } catch {}
-  }, []);
+  }, [page, limit]);
 
   const fetchUnreadCount = useCallback(async () => {
     try {
@@ -100,6 +104,7 @@ export function useNotifications() {
     const wasUnread = notifications.find((n) => n.id === id)?.read === false;
     await api.delete(`/notifications/${id}`).catch(() => {});
     setNotifications((prev) => prev.filter((n) => n.id !== id));
+    setTotal((prev) => Math.max(0, prev - 1));
     if (wasUnread) setUnreadCount((c) => Math.max(0, c - 1));
   }, [notifications]);
 
@@ -117,8 +122,13 @@ export function useNotifications() {
     setUnreadCount((c) => c + 1);
   }, []);
 
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+
   return {
     notifications,
+    total,
+    page,
+    totalPages,
     unreadCount,
     loading,
     markAsRead,

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { GoalFormDialog } from "@/components/goals/GoalFormDialog";
 import { ContributeDialog } from "@/components/goals/ContributeDialog";
 import { useGoals } from "@/hooks/useGoals";
+import { Pagination } from "@/components/ui/Pagination";
 import { GoalResponse } from "@/types/api";
 import { formatCurrency } from "@/lib/format";
 import { useCountUp } from "@/hooks/useCountUp";
@@ -193,7 +194,8 @@ function GoalCard({ goal, onEdit, onContribute }: GoalCardProps) {
 }
 
 export default function GoalsPage() {
-  const { goals, loading, error, createGoal, updateGoal, deleteGoal, contributeGoal } = useGoals();
+  const [page, setPage] = useState(1);
+  const { goals, total, totalPages, loading, error, createGoal, updateGoal, deleteGoal, contributeGoal } = useGoals({ page });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<GoalResponse | null>(null);
   const [contributing, setContributing] = useState<GoalResponse | null>(null);
@@ -284,6 +286,14 @@ export default function GoalsPage() {
                     </div>
                   </>
                 )}
+
+                <Pagination
+                  page={page}
+                  totalPages={totalPages}
+                  total={total}
+                  limit={20}
+                  onPageChange={setPage}
+                />
               </div>
             )}
           </>

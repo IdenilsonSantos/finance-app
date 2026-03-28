@@ -3,7 +3,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { api } from "@/lib/api/client";
-import { GoalResponse } from "@/types/api";
+import { GoalResponse, PaginatedResponse } from "@/types/api";
 
 export interface CreateGoalPayload {
   name: string;
@@ -19,14 +19,25 @@ export interface UpdateGoalPayload {
   color?: string;
 }
 
-export function useGoals() {
+export interface GoalFilters {
+  page?: number;
+  limit?: number;
+  completed?: boolean;
+}
+
+export function useGoals(filters: GoalFilters = {}) {
   const { data: session } = useSession();
   const workspaceId = session?.workspaceId;
   const queryClient = useQueryClient();
 
-  const { data, isLoading, error } = useQuery<GoalResponse[]>({
-    queryKey: ["goals", workspaceId],
-    queryFn: () => api.get<GoalResponse[]>("/goals"),
+  const params = new URLSearchParams();
+  params.set("page", String(filters.page ?? 1));
+  params.set("limit", String(filters.limit ?? 20));
+  if (filters.completed !== undefined) params.set("completed", String(filters.completed));
+
+  const { data, isLoading, error } = useQuery<PaginatedResponse<GoalResponse>>({
+    queryKey: ["goals", workspaceId, params.toString()],
+    queryFn: () => api.get<PaginatedResponse<GoalResponse>>(`/goals?${params}`),
     enabled: !!workspaceId,
   });
 
@@ -64,7 +75,10 @@ export function useGoals() {
   }
 
   return {
-    goals: data ?? [],
+    goals: data?.data ?? [],
+    total: data?.total ?? 0,
+    page: data?.page ?? 1,
+    totalPages: data?.totalPages ?? 1,
     loading: isLoading,
     error: error ? (error instanceof Error ? error.message : "Erro ao carregar metas") : null,
     createGoal,

@@ -3,7 +3,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { api } from "@/lib/api/client";
-import { ScheduledTransactionResponse } from "@/types/api";
+import { ScheduledTransactionResponse, PaginatedResponse } from "@/types/api";
 
 export interface CreateScheduledTransactionPayload {
   bankAccountId: string;
@@ -27,14 +27,30 @@ export interface UpdateScheduledTransactionPayload {
   endDate?: string;
 }
 
-export function useScheduledTransactions() {
+export interface ScheduledTransactionFilters {
+  page?: number;
+  limit?: number;
+  frequency?: "once" | "daily" | "weekly" | "monthly" | "yearly";
+  accountId?: string;
+}
+
+export function useScheduledTransactions(filters: ScheduledTransactionFilters = {}) {
   const { data: session } = useSession();
   const workspaceId = session?.workspaceId;
   const queryClient = useQueryClient();
 
-  const { data, isLoading, error } = useQuery<ScheduledTransactionResponse[]>({
-    queryKey: ["scheduled-transactions", workspaceId],
-    queryFn: () => api.get<ScheduledTransactionResponse[]>("/scheduled-transactions"),
+  const params = new URLSearchParams();
+  params.set("page", String(filters.page ?? 1));
+  params.set("limit", String(filters.limit ?? 50));
+  if (filters.frequency) params.set("frequency", filters.frequency);
+  if (filters.accountId) params.set("accountId", filters.accountId);
+
+  const { data, isLoading, error } = useQuery<PaginatedResponse<ScheduledTransactionResponse>>({
+    queryKey: ["scheduled-transactions", workspaceId, params.toString()],
+    queryFn: () =>
+      api.get<PaginatedResponse<ScheduledTransactionResponse>>(
+        `/scheduled-transactions?${params}`,
+      ),
     enabled: !!workspaceId,
   });
 
@@ -66,7 +82,10 @@ export function useScheduledTransactions() {
   }
 
   return {
-    scheduled: data ?? [],
+    scheduled: data?.data ?? [],
+    total: data?.total ?? 0,
+    page: data?.page ?? 1,
+    totalPages: data?.totalPages ?? 1,
     loading: isLoading,
     error: error ? (error instanceof Error ? error.message : "Erro ao carregar agendamentos") : null,
     createScheduledTransaction,

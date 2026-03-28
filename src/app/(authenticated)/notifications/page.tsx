@@ -1,103 +1,60 @@
 "use client";
 
 import { Header } from "@/components/Header";
-import { useNotificationsContext as useNotifications } from "@/components/providers/NotificationsContext";
-import type { AppNotification } from "@/hooks/useNotifications";
+import { useNotifications } from "@/hooks/useNotifications";
+import { Pagination } from "@/components/ui/Pagination";
+import { NotificationsTable } from "@/components/notifications/NotificationsTable";
 import { Button } from "@/components/ui/button";
-import {
-  Bell,
-  CheckCheck,
-  Loader2,
-  Trash2,
-  Trophy,
-  Clock,
-  CalendarCheck,
-  ArrowLeftRight,
-  LucideIcon,
-} from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { cn } from "@/lib/utils";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Bell, CheckCheck, Trash2 } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useState } from "react";
 
-const TYPE_ICONS: Record<string, LucideIcon> = {
-  goalAchieved: Trophy,
-  goalDeadline: Clock,
-  scheduledReminder: CalendarCheck,
-  transferCreated: ArrowLeftRight,
-};
+function Pulse({ className }: { className?: string }) {
+  return <div className={`animate-pulse rounded-lg bg-slate-100 ${className}`} />;
+}
 
-const TYPE_ICON_COLORS: Record<string, string> = {
-  goalAchieved: "bg-emerald-100 text-emerald-600",
-  goalDeadline: "bg-amber-100 text-amber-600",
-  scheduledReminder: "bg-blue-100 text-blue-600",
-  transferCreated: "bg-violet-100 text-violet-600",
-};
-
-
-function NotificationRow({
-  notification,
-  selected,
-  onToggle,
-}: {
-  notification: AppNotification;
-  selected: boolean;
-  onToggle: () => void;
-}) {
-  const Icon = TYPE_ICONS[notification.type] ?? Bell;
-  const iconColor = TYPE_ICON_COLORS[notification.type] ?? "bg-slate-100 text-slate-500";
-  const unread = !notification.read;
-
+function NotificationsSkeleton() {
   return (
-    <div
-      onClick={onToggle}
-      className={cn(
-        "w-full flex items-center gap-3 px-3 py-3 rounded-2xl transition-all cursor-pointer",
-        selected
-          ? "bg-[#1E1E2D]/5"
-          : unread
-          ? "bg-slate-50 hover:bg-slate-100/70"
-          : "hover:bg-slate-50 opacity-60",
-      )}
-    >
-      <Checkbox
-        checked={selected}
-        onCheckedChange={onToggle}
-        onClick={(e) => e.stopPropagation()}
-      />
-
-      <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center shrink-0", iconColor)}>
-        <Icon size={17} />
+    <div className="bg-white rounded-3xl shadow-sm overflow-hidden">
+      <div className="px-6 py-5 border-b border-slate-50">
+        <Pulse className="h-5 w-40 mb-1" />
+        <Pulse className="h-3.5 w-20 mt-2" />
       </div>
-
-      <div className="flex-1 min-w-0">
-        <p className={cn("text-sm truncate", unread ? "font-semibold text-slate-800" : "font-medium text-slate-600")}>
-          {notification.title}
-        </p>
-        <p className="text-xs text-slate-400 truncate mt-0.5">{notification.body}</p>
-        <p className="text-[10px] text-slate-300 font-mono mt-1">
-          {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true, locale: ptBR })}
-        </p>
+      <div className="divide-y divide-slate-50">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-4 px-6 py-4">
+            <Pulse className="w-4 h-4 rounded shrink-0" />
+            <Pulse className="w-9 h-9 rounded-full shrink-0" />
+            <div className="flex-1 space-y-1.5">
+              <Pulse className="h-3.5 w-48" />
+              <Pulse className="h-2.5 w-72" />
+            </div>
+            <Pulse className="h-6 w-16 rounded-full hidden md:block" />
+            <Pulse className="h-6 w-14 rounded-full hidden sm:block" />
+            <Pulse className="h-3 w-20 hidden lg:block" />
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
+const LIMIT = 20;
+
 export default function NotificationsPage() {
+  const [page, setPage] = useState(1);
   const {
     notifications,
+    total,
+    totalPages,
     unreadCount,
     loading,
     markAsRead,
     markAllAsRead,
     markAsUnread,
     deleteOne,
-    deleteRead,
-    deleteAll,
-  } = useNotifications();
+    refetch,
+  } = useNotifications(page, LIMIT);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmDelete, setConfirmDelete] = useState<"selected" | null>(null);
@@ -126,6 +83,13 @@ export default function NotificationsPage() {
     await Promise.all([...selected].map((id) => deleteOne(id)));
     setSelected(new Set());
     setConfirmDelete(null);
+    const newTotal = Math.max(0, total - selected.size);
+    const newTotalPages = Math.max(1, Math.ceil(newTotal / LIMIT));
+    if (page > newTotalPages) {
+      setPage(newTotalPages); // useEffect vai refetch automaticamente
+    } else {
+      refetch(); // mesma página, precisa buscar os dados frescos
+    }
   }
 
   async function handleMarkSelectedRead() {
@@ -145,8 +109,22 @@ export default function NotificationsPage() {
     (id) => notifications.find((n) => n.id === id)?.read,
   );
 
+  if (loading) {
+    return (
+      <div className="flex flex-col min-h-screen bg-gray-50/50">
+        <Header
+          title="Notificações"
+          subtitle="Acompanhe suas atualizações em tempo real"
+        />
+        <div className="flex-1 p-4 md:p-8">
+          <NotificationsSkeleton />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col h-screen bg-gray-50/50">
+    <div className="flex flex-col min-h-screen bg-gray-50/50">
       <Header
         title="Notificações"
         subtitle="Acompanhe suas atualizações em tempo real"
@@ -164,87 +142,78 @@ export default function NotificationsPage() {
         }
       />
 
-      <div className="flex-1 overflow-hidden p-4 md:p-8">
-        <div className="bg-white rounded-3xl shadow-sm overflow-hidden flex flex-col h-full">
-          <div className="px-6 py-4 border-b border-slate-50 shrink-0 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              {notifications.length > 0 && (
-                <Checkbox
-                  checked={allSelected}
-                  indeterminate={someSelected}
-                  onCheckedChange={toggleAll}
-                />
-              )}
-              <div>
-                <h2 className="text-base font-bold text-slate-900">Todas as notificações</h2>
-                <p className="text-sm text-slate-500 mt-0.5">
-                  {unreadCount} não {unreadCount === 1 ? "lida" : "lidas"}
-                </p>
-              </div>
+      <div className="flex-1 p-4 md:p-8">
+        <div className="bg-white rounded-3xl shadow-sm overflow-hidden">
+          <div className="px-6 py-5 border-b border-slate-50 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-bold text-slate-900">Todas as notificações</h2>
+              <p className="text-sm text-slate-500 mt-0.5">
+                {unreadCount} não {unreadCount === 1 ? "lida" : "lidas"}
+              </p>
             </div>
 
             {hasSelection && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-slate-400 mr-1">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
+                <span className="hidden sm:inline text-xs text-slate-400 font-medium">
                   {selected.size} {selected.size === 1 ? "selecionada" : "selecionadas"}
                 </span>
+                <div className="hidden sm:block w-px h-4 bg-slate-200" />
                 {selectedHasUnread && (
-                  <button
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={handleMarkSelectedRead}
-                    className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 px-2.5 py-1.5 rounded-xl hover:bg-slate-100 transition-colors"
+                    className="h-8 gap-1.5 rounded-2xl border-slate-200 text-slate-600 font-semibold text-xs"
                   >
-                    <CheckCheck size={13} />
-                    Lida
-                  </button>
+                    <CheckCheck className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Marcar como lida</span>
+                  </Button>
                 )}
                 {selectedHasRead && (
-                  <button
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={handleMarkSelectedUnread}
-                    className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 px-2.5 py-1.5 rounded-xl hover:bg-slate-100 transition-colors"
+                    className="h-8 gap-1.5 rounded-2xl border-slate-200 text-slate-600 font-semibold text-xs"
                   >
-                    <Bell size={13} />
-                    Não lida
-                  </button>
+                    <Trash2 className="w-3.5 h-3.5 rotate-45 opacity-0 absolute" />
+                    <CheckCheck className="w-3.5 h-3.5 opacity-50" />
+                    <span className="hidden sm:inline">Marcar como não lida</span>
+                  </Button>
                 )}
-                <button
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => setConfirmDelete("selected")}
-                  className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-600 px-2.5 py-1.5 rounded-xl hover:bg-red-50 transition-colors"
+                  className="h-8 gap-1.5 rounded-2xl border-red-200 text-red-500 hover:bg-red-50 hover:text-red-600 font-semibold text-xs"
                 >
-                  <Trash2 size={13} />
-                  Excluir
-                </button>
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Excluir</span>
+                </Button>
               </div>
             )}
           </div>
 
-          {loading ? (
-            <div className="flex items-center justify-center flex-1">
-              <Loader2 className="w-6 h-6 animate-spin text-slate-300" />
-            </div>
-          ) : notifications.length === 0 ? (
-            <div className="flex flex-col items-center justify-center flex-1 gap-3 text-center px-6">
-              <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center">
-                <Bell className="w-7 h-7 text-slate-300" />
-              </div>
-              <p className="text-base font-semibold text-slate-700">Nenhuma notificação ainda</p>
-              <p className="text-sm text-slate-400 max-w-xs">
-                Quando algo importante acontecer, você verá aqui.
-              </p>
-            </div>
-          ) : (
-            <ScrollArea className="flex-1">
-              <div className="p-4 space-y-0.5">
-                {notifications.map((n) => (
-                  <NotificationRow
-                    key={n.id}
-                    notification={n}
-                    selected={selected.has(n.id)}
-                    onToggle={() => toggleOne(n.id)}
-                  />
-                ))}
-              </div>
-            </ScrollArea>
-          )}
+          <>
+              <NotificationsTable
+                notifications={notifications}
+                selected={selected}
+                onToggle={toggleOne}
+                allSelected={allSelected}
+                someSelected={someSelected}
+                onToggleAll={toggleAll}
+                onMarkRead={markAsRead}
+                onMarkUnread={markAsUnread}
+                onDelete={deleteOne}
+              />
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                total={total}
+                limit={LIMIT}
+                onPageChange={(p) => { setPage(p); setSelected(new Set()); }}
+              />
+            </>
         </div>
       </div>
 

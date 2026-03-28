@@ -7,11 +7,13 @@ import { ptBR } from "date-fns/locale";
 import { Pencil, Trash2, FileText, Landmark, QrCode, CreditCard, Wallet, Banknote, ArrowLeftRight, Barcode } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getCategoryStyle } from "@/lib/categories";
 import { formatCurrency } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 export interface TransactionItem {
   id: string;
@@ -40,6 +42,12 @@ interface TransactionsTableProps {
   emptyMessage?: string;
   emptySubtitle?: string;
   emptyIcon?: LucideIcon;
+  // Selection
+  selected?: Set<string>;
+  onToggle?: (id: string) => void;
+  allSelected?: boolean;
+  someSelected?: boolean;
+  onToggleAll?: () => void;
 }
 
 const ROW_HEIGHT = 64;
@@ -62,18 +70,32 @@ function TxCells({
   isDeleting,
   onEdit,
   onDeleteClick,
+  isSelected,
+  onToggle,
 }: {
   tx: TransactionItem;
   showActions: boolean;
   isDeleting: boolean;
   onEdit?: (id: string) => void;
   onDeleteClick: (id: string) => void;
+  isSelected?: boolean;
+  onToggle?: (id: string) => void;
 }) {
   const catStyle = getCategoryStyle(tx.category);
   const pm = tx.paymentMethod ? PAYMENT_METHODS[tx.paymentMethod] : null;
 
   return (
     <>
+      {/* Checkbox */}
+      {onToggle !== undefined && (
+        <td className="pl-6 pr-3 py-4 align-middle w-[52px]">
+          <Checkbox
+            checked={isSelected ?? false}
+            onCheckedChange={() => onToggle(tx.id)}
+          />
+        </td>
+      )}
+
       {/* Description / Beneficiary */}
       <td className="pl-6 pr-4 py-4 align-middle">
         <div className="flex items-center gap-3">
@@ -117,7 +139,7 @@ function TxCells({
       </td>
 
       {/* Category badge */}
-      <td className="px-4 py-4 align-middle w-[160px]">
+      <td className="px-4 py-4 align-middle w-[160px] hidden sm:table-cell">
         <span
           className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold whitespace-nowrap"
           style={{ backgroundColor: catStyle.color + "22", color: catStyle.color }}
@@ -169,7 +191,7 @@ function TxCells({
       {/* Actions */}
       {showActions && (
         <td className="pr-4 py-4 align-middle w-[80px]">
-          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center justify-end gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
             {onEdit && (
               <Button
                 variant="ghost"
@@ -198,13 +220,34 @@ function TxCells({
 
 const TH = "h-11 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap";
 
-function TableHeader({ showActions, sticky }: { showActions: boolean; sticky?: boolean }) {
+function TableHeader({
+  showActions,
+  sticky,
+  allSelected,
+  someSelected,
+  onToggleAll,
+}: {
+  showActions: boolean;
+  sticky?: boolean;
+  allSelected?: boolean;
+  someSelected?: boolean;
+  onToggleAll?: () => void;
+}) {
   const s = sticky ? " sticky top-0 bg-white z-10" : "";
   return (
     <thead>
       <tr className="border-b border-slate-100">
+        {onToggleAll !== undefined && (
+          <th className={`${TH} pl-6 pr-3 w-[52px]${s}`}>
+            <Checkbox
+              checked={allSelected ?? false}
+              indeterminate={someSelected}
+              onCheckedChange={onToggleAll}
+            />
+          </th>
+        )}
         <th className={`${TH} pl-6 pr-4${s}`}>Descrição / Beneficiário</th>
-        <th className={`${TH} px-4 w-[160px]${s}`}>Categoria</th>
+        <th className={`${TH} px-4 w-[160px] hidden sm:table-cell${s}`}>Categoria</th>
         <th className={`${TH} px-4 w-[160px] hidden md:table-cell${s}`}>Pagamento</th>
         <th className={`${TH} px-4 text-right w-[160px]${s}`}>Valor</th>
         <th className={`${TH} pl-4 pr-6 w-[110px] hidden lg:table-cell${s}`}>Data</th>
@@ -226,10 +269,16 @@ export function TransactionsTable({
   emptyMessage,
   emptySubtitle,
   emptyIcon: EmptyIcon = FileText,
+  selected,
+  onToggle,
+  allSelected,
+  someSelected,
+  onToggleAll,
 }: TransactionsTableProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const showActions = !!(onEdit || onDelete);
+  const showSelection = !!(onToggle && onToggleAll);
 
   const virtualizer = useVirtualizer({
     count: simple ? 0 : transactions.length,
@@ -269,24 +318,34 @@ export function TransactionsTable({
   if (simple) {
     return (
       <>
+        <div className="overflow-x-auto">
         <ScrollArea style={{ height: tableHeight }}>
-          <table className="w-full text-sm border-collapse">
-            <TableHeader showActions={showActions} sticky />
+          <table className="w-full min-w-[520px] text-sm border-collapse">
+            <TableHeader showActions={showActions} sticky allSelected={allSelected} someSelected={someSelected} onToggleAll={onToggleAll} />
             <tbody>
               {transactions.map((tx) => (
-                <tr key={tx.id} className="group border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
+                <tr
+                  key={tx.id}
+                  className={cn(
+                    "group border-b border-slate-50 transition-colors",
+                    selected?.has(tx.id) ? "bg-[#1E1E2D]/[0.03]" : "hover:bg-slate-50/60",
+                  )}
+                >
                   <TxCells
                     tx={tx}
                     showActions={showActions}
                     isDeleting={deletingId === tx.id}
                     onEdit={onEdit}
                     onDeleteClick={setConfirmId}
+                    isSelected={selected?.has(tx.id)}
+                    onToggle={showSelection ? onToggle : undefined}
                   />
                 </tr>
               ))}
             </tbody>
           </table>
         </ScrollArea>
+        </div>
         {confirm}
       </>
     );
@@ -297,9 +356,10 @@ export function TransactionsTable({
   const totalSize = virtualizer.getTotalSize();
 
   return (
-    <div>
+    <div className="overflow-x-auto">
+      <div className="min-w-[520px]">
       <table className="w-full text-sm border-collapse">
-        <TableHeader showActions={showActions} />
+        <TableHeader showActions={showActions} allSelected={allSelected} someSelected={someSelected} onToggleAll={onToggleAll} />
       </table>
 
       <ScrollArea viewportRef={viewportRef} style={{ height: tableHeight }}>
@@ -316,7 +376,10 @@ export function TransactionsTable({
                     key={tx.id}
                     data-index={virtualRow.index}
                     ref={virtualizer.measureElement}
-                    className="group border-b border-slate-50 hover:bg-slate-50/60 transition-colors animate-[fadeSlideIn_0.25s_ease_both]"
+                    className={cn(
+                      "group border-b border-slate-50 transition-colors animate-[fadeSlideIn_0.25s_ease_both]",
+                      selected?.has(tx.id) ? "bg-[#1E1E2D]/[0.03]" : "hover:bg-slate-50/60",
+                    )}
                     style={{ animationDelay: `${Math.min(virtualRow.index, 12) * 35}ms` }}
                   >
                     <TxCells
@@ -325,6 +388,8 @@ export function TransactionsTable({
                       isDeleting={deletingId === tx.id}
                       onEdit={onEdit}
                       onDeleteClick={setConfirmId}
+                      isSelected={selected?.has(tx.id)}
+                      onToggle={showSelection ? onToggle : undefined}
                     />
                   </tr>
                 );
@@ -333,6 +398,7 @@ export function TransactionsTable({
           </table>
         </div>
       </ScrollArea>
+      </div>
       {confirm}
     </div>
   );
