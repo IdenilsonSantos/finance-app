@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
+import { useQueryClient } from "@tanstack/react-query";
 import { io, Socket } from "socket.io-client";
 import { api } from "@/lib/api/client";
 
@@ -18,6 +19,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 export function useNotifications() {
   const { data: session } = useSession();
+  const queryClient = useQueryClient();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -56,6 +58,13 @@ export function useNotifications() {
     socket.on("notification", (notification: AppNotification) => {
       setNotifications((prev) => [notification, ...prev]);
       setUnreadCount((c) => c + 1);
+
+      if (notification.type === "scheduledReminder") {
+        queryClient.invalidateQueries({ queryKey: ["transactions"] });
+        queryClient.invalidateQueries({ queryKey: ["scheduled-transactions"] });
+        queryClient.invalidateQueries({ queryKey: ["bank-accounts"] });
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      }
     });
 
     socket.on("unread_count", ({ count }: { count: number }) => {

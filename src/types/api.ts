@@ -9,8 +9,9 @@ export interface ScheduledTransactionResponse {
   description: string | null;
   category: string;
   frequency: "once" | "daily" | "weekly" | "monthly" | "yearly";
-  nextDate: string;
+  nextDate: string | null;
   endDate: string | null;
+  lastExecutedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }

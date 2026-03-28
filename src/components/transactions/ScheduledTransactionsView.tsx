@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarDays, Play, Pencil, Trash2, Loader2, RepeatIcon } from "lucide-react";
+import { CalendarDays, Play, Pencil, Trash2, Loader2, RepeatIcon, CheckCircle2, Clock } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { differenceInDays, parseISO, format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getCategoryStyle } from "@/lib/categories";
@@ -25,6 +26,21 @@ interface Props {
   onEdit: (item: ScheduledTransactionResponse) => void;
   onDelete: (id: string) => Promise<void>;
   onExecute: (id: string) => Promise<void>;
+}
+
+function getNextDateLabel(nextDate: string): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = parseISO(nextDate + "T00:00:00");
+  const diff = differenceInDays(target, today);
+  if (diff === 0) return "hoje";
+  if (diff === 1) return "amanhã";
+  if (diff < 0) return "vencida";
+  return `em ${diff} dias`;
+}
+
+function isCompleted(item: ScheduledTransactionResponse): boolean {
+  return item.nextDate === null;
 }
 
 export function ScheduledTransactionsView({ scheduled, bankAccounts, onEdit, onDelete, onExecute }: Props) {
@@ -64,7 +80,9 @@ export function ScheduledTransactionsView({ scheduled, bankAccounts, onEdit, onD
           <CalendarDays className="w-7 h-7 text-slate-300" />
         </div>
         <p className="text-sm font-semibold text-slate-500">Nenhum agendamento encontrado</p>
-        <p className="text-xs text-slate-400">Crie uma transação com data futura para agendar</p>
+        <p className="text-xs text-slate-400 text-center max-w-xs">
+          Crie um agendamento e ele será executado automaticamente todo dia à meia-noite
+        </p>
       </div>
     );
   }
@@ -77,9 +95,21 @@ export function ScheduledTransactionsView({ scheduled, bankAccounts, onEdit, onD
         const account = bankAccounts.find((a) => a.id === item.bankAccountId);
         const isExecuting = executingId === item.id;
         const isDeleting = deletingId === item.id;
+        const completed = isCompleted(item);
+        const nextDateLabel = item.nextDate ? getNextDateLabel(item.nextDate) : null;
+        const isOverdue = nextDateLabel === "vencida";
+        const lastExecutedLabel = item.lastExecutedAt
+          ? format(parseISO(item.lastExecutedAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
+          : null;
 
         return (
-          <div key={item.id} className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50/60 transition-colors">
+          <div
+            key={item.id}
+            className={cn(
+              "flex items-center gap-4 px-6 py-4 transition-colors",
+              completed ? "opacity-60 hover:bg-slate-50/40" : "hover:bg-slate-50/60",
+            )}
+          >
             <div
               className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
               style={{ backgroundColor: catStyle.color + "20" }}
@@ -88,9 +118,18 @@ export function ScheduledTransactionsView({ scheduled, bankAccounts, onEdit, onD
             </div>
 
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-slate-800 truncate">
-                {item.description || catStyle.label}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold text-slate-800 truncate">
+                  {item.description || catStyle.label}
+                </p>
+                {completed && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full shrink-0">
+                    <CheckCircle2 className="w-2.5 h-2.5" />
+                    Concluída
+                  </span>
+                )}
+              </div>
+
               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                 <span className="text-xs text-slate-400">{account?.name ?? "—"}</span>
                 <span className="text-slate-200">·</span>
@@ -98,6 +137,15 @@ export function ScheduledTransactionsView({ scheduled, bankAccounts, onEdit, onD
                   <RepeatIcon className="w-3 h-3" />
                   {FREQUENCY_LABELS[item.frequency] ?? item.frequency}
                 </span>
+                {lastExecutedLabel && (
+                  <>
+                    <span className="text-slate-200">·</span>
+                    <span className="inline-flex items-center gap-1 text-xs text-slate-400">
+                      <Clock className="w-3 h-3" />
+                      Executada em {lastExecutedLabel}
+                    </span>
+                  </>
+                )}
               </div>
             </div>
 
@@ -109,39 +157,44 @@ export function ScheduledTransactionsView({ scheduled, bankAccounts, onEdit, onD
                 )}>
                   {item.type === "income" ? "+" : "-"}{formatCurrency(item.amount)}
                 </p>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  próx.{" "}
-                  {new Date(item.nextDate + "T12:00:00").toLocaleDateString("pt-BR", {
-                    day: "2-digit",
-                    month: "short",
-                  })}
-                </p>
+                {!completed && nextDateLabel && (
+                  <p className={cn(
+                    "text-[11px] mt-0.5",
+                    isOverdue ? "text-red-400 font-medium" : "text-slate-400",
+                  )}>
+                    próx. {nextDateLabel}
+                  </p>
+                )}
               </div>
 
               <div className="flex items-center gap-1">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => handleExecute(item.id)}
-                      disabled={isExecuting || isDeleting}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-40"
-                    >
-                      {isExecuting ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Play className="w-3.5 h-3.5" />
-                      )}
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>Executar agora</TooltipContent>
-                </Tooltip>
-                <button
-                  onClick={() => onEdit(item)}
-                  disabled={isExecuting || isDeleting}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors disabled:opacity-40"
-                >
-                  <Pencil className="w-3.5 h-3.5" />
-                </button>
+                {!completed && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => handleExecute(item.id)}
+                        disabled={isExecuting || isDeleting}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-40"
+                      >
+                        {isExecuting ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Play className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>Executar agora</TooltipContent>
+                  </Tooltip>
+                )}
+                {!completed && (
+                  <button
+                    onClick={() => onEdit(item)}
+                    disabled={isExecuting || isDeleting}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors disabled:opacity-40"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                )}
                 <button
                   onClick={() => setConfirmId(item.id)}
                   disabled={isExecuting || isDeleting}
