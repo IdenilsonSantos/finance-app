@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useSignUp } from "@/hooks/useSignUp";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,8 +17,15 @@ import {
 } from "@/components/ui/form";
 
 export default function SignUpForm() {
-  const { form, isLoading, onSubmit } = useSignUp();
+  const { form, isLoading, onSubmit, pendingVerification } = useSignUp();
   const [showPassword, setShowPassword] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (pendingVerification) {
+      router.push("/auth/verify-email");
+    }
+  }, [pendingVerification, router]);
 
   return (
     <div className="w-full max-w-md mx-auto">
@@ -39,11 +47,7 @@ export default function SignUpForm() {
                   Nome Completo
                 </FormLabel>
                 <FormControl>
-                  <Input
-                    placeholder="João Silva"
-                    disabled={isLoading}
-                    {...field}
-                  />
+                  <Input placeholder="João Silva" disabled={isLoading} {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -59,12 +63,7 @@ export default function SignUpForm() {
                   Email
                 </FormLabel>
                 <FormControl>
-                  <Input
-                    type="email"
-                    placeholder="email@email.com"
-                    disabled={isLoading}
-                    {...field}
-                  />
+                  <Input type="email" placeholder="email@email.com" disabled={isLoading} {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -94,11 +93,7 @@ export default function SignUpForm() {
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 transition-colors cursor-pointer"
                     >
-                      {showPassword ? (
-                        <EyeOff className="w-4 h-4" />
-                      ) : (
-                        <Eye className="w-4 h-4" />
-                      )}
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
                 </FormControl>
@@ -112,11 +107,7 @@ export default function SignUpForm() {
             disabled={isLoading}
             className="flex items-center gap-2 w-full bg-[#dbf249] text-black hover:bg-[#c9e038] font-semibold h-11"
           >
-            {isLoading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <CheckCircle className="w-4 h-4" />
-            )}
+            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
             {isLoading ? "Criando conta..." : "Criar Conta"}
           </Button>
         </form>
@@ -124,13 +115,10 @@ export default function SignUpForm() {
 
       <p className="mt-8 text-center text-sm text-gray-500">
         Já tem uma conta?
-        <Link
-          href="/sign-in"
-          className="font-semibold text-gray-900 hover:text-gray-700 ml-1"
-        >
+        <Link href="/sign-in" className="font-semibold text-gray-900 hover:text-gray-700 ml-1">
           Entrar
         </Link>
-        <span className="block mx-auto mt-1 h-1 w-8 rounded-full bg-[#dbf249]"></span>
+        <span className="block mx-auto mt-1 h-1 w-8 rounded-full bg-[#dbf249]" />
       </p>
     </div>
   );

@@ -30,3 +30,31 @@ export const signInSchema = z.object({
 });
 
 export type SignInFormData = z.infer<typeof signInSchema>;
+
+export const forgotPasswordSchema = z.object({
+  email: z
+    .string()
+    .email("Por favor, insira um endereço de email válido")
+    .min(1, "O email é obrigatório"),
+});
+
+export type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
+
+export const resetPasswordSchema = z
+  .object({
+    newPassword: z
+      .string()
+      .min(8, "A senha deve ter pelo menos 8 caracteres")
+      .max(100, "A senha deve ter menos de 100 caracteres")
+      .regex(
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
+        "A senha deve conter pelo menos uma letra maiúscula, uma letra minúscula e um número"
+      ),
+    confirmPassword: z.string().min(1, "Confirme a nova senha"),
+  })
+  .refine((d) => d.newPassword === d.confirmPassword, {
+    message: "As senhas não coincidem",
+    path: ["confirmPassword"],
+  });
+
+export type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>;
