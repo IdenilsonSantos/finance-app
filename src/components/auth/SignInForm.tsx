@@ -25,6 +25,9 @@ export default function SignInForm() {
     if (params.get("verified") === "true") {
       toast.success("E-mail verificado com sucesso! Agora você pode entrar.");
     }
+    if (params.get("reset") === "true") {
+      toast.success("Senha redefinida com sucesso! Faça login com sua nova senha.");
+    }
   }, []);
 
   return (
@@ -94,6 +97,15 @@ export default function SignInForm() {
               </FormItem>
             )}
           />
+
+          <div className="flex justify-end">
+            <Link
+              href="/forgot-password"
+              className="text-xs font-medium text-gray-500 hover:text-gray-900 transition-colors"
+            >
+              Esqueceu a senha?
+            </Link>
+          </div>
 
           <Button
             type="submit"

@@ -1,7 +1,7 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 
-const API_URL = process.env.API_URL ?? "http://localhost:3001";
+const API_URL = process.env.API_URL ?? "http://localhost:3001/api";
 
 interface ApiAuthResponse {
   access_token: string;
@@ -43,7 +43,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   session: {
     strategy: "jwt",
-    maxAge: 7 * 24 * 60 * 60, // 7 days — matches refresh token TTL
+    maxAge: 7 * 24 * 60 * 60,
   },
   callbacks: {
     async jwt({ token, user, trigger, session }) {
