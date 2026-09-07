@@ -83,13 +83,18 @@ const Sidebar = () => {
           )}
         >
           <div className="flex items-center gap-3 overflow-hidden">
-            <div className="flex items-center justify-center w-10 h-10 rounded-2xl bg-[#1E1E2D] text-white shrink-0 shadow-sm">
-              <span className="font-bold text-xl font-sans">F</span>
-            </div>
-            {(!collapsed || isMobileOpen) && (
-              <span className="text-2xl font-bold whitespace-nowrap text-[#1E1E2D] font-sans tracking-tight">
-                Finance.
-              </span>
+            {collapsed && !isMobileOpen ? (
+              <img
+                src="https://res.cloudinary.com/djgvgwuwe/image/upload/v1788789010/logo_mini_zttgmf.png"
+                alt="Logo"
+                className="w-10 h-10 object-contain shrink-0 rounded-xl border border-gray-200"
+              />
+            ) : (
+              <img
+                src="https://res.cloudinary.com/djgvgwuwe/image/upload/v1788789010/logo_grande_rz2wy2.png"
+                alt="Logo"
+                className="h-10 w-auto object-contain shrink-0"
+              />
             )}
           </div>
 
