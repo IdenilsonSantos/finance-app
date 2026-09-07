@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CheckCircle2, XCircle, Loader2, Mail } from "lucide-react";
+import { Logo } from "@/components/Logo";
 
 function VerifyEmailContent() {
   const router = useRouter();
@@ -103,7 +104,7 @@ export default function VerifyEmailPage() {
       <div className="flex flex-1 flex-col justify-center px-4 py-12 sm:px-6 lg:flex-none lg:px-20 xl:px-24 w-full lg:w-1/2">
         <div className="mx-auto w-full max-w-sm lg:w-96">
           <div className="mb-10">
-            <span className="flex items-center gap-2 font-bold text-xl">Finance App</span>
+            <Logo variant="full" className="h-8" />
           </div>
           <Suspense fallback={null}>
             <VerifyEmailContent />

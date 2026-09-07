@@ -12,7 +12,6 @@ import {
   CheckCircle,
   XCircle,
   LogIn,
-  Building2,
   Mail,
   User,
   Clock,
@@ -23,6 +22,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { Logo } from "@/components/Logo";
 
 const ROLE_LABELS: Record<string, string> = {
   owner: "Owner",
@@ -110,11 +110,8 @@ export default function InvitePage() {
       <div className="flex flex-1 flex-col justify-center px-4 py-12 sm:px-6 lg:flex-none lg:px-20 xl:px-24 w-full lg:w-1/2">
         <div className="mx-auto w-full max-w-sm lg:w-96">
           {/* Brand */}
-          <div className="mb-10 flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-[#1E1E2D] flex items-center justify-center">
-              <Building2 className="w-4 h-4 text-white" />
-            </div>
-            <span className="text-xl font-bold text-slate-900">Finance App</span>
+          <div className="mb-10">
+            <Logo variant="full" className="h-8" />
           </div>
 
           {loadingInvite ? (

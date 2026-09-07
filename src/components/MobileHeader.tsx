@@ -3,6 +3,7 @@
 import { useSidebar } from "@/components/providers/SidebarContext";
 import { Menu, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/Logo";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,9 +19,7 @@ export default function MobileHeader() {
   return (
     <header className="flex md:hidden items-center justify-between p-4 bg-white border-b border-gray-100">
       <div className="flex items-center gap-2">
-        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#1E1E2D] text-white shrink-0">
-          <span className="font-bold text-lg font-sans">M</span>
-        </div>
+        <Logo variant="mini" className="w-8 h-8 rounded-lg" />
         <span className="font-bold text-lg text-[#1E1E2D] font-sans">
           Finance.
         </span>

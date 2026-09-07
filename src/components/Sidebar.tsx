@@ -29,6 +29,7 @@ import { useNotificationsContext as useNotifications } from "@/components/provid
 import { signOut, useSession } from "next-auth/react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getInitials } from "@/lib/format";
+import { Logo } from "@/components/Logo";
 
 const Sidebar = () => {
   const pathname = usePathname();
@@ -83,13 +84,10 @@ const Sidebar = () => {
           )}
         >
           <div className="flex items-center gap-3 overflow-hidden">
-            <div className="flex items-center justify-center w-10 h-10 rounded-2xl bg-[#1E1E2D] text-white shrink-0 shadow-sm">
-              <span className="font-bold text-xl font-sans">F</span>
-            </div>
-            {(!collapsed || isMobileOpen) && (
-              <span className="text-2xl font-bold whitespace-nowrap text-[#1E1E2D] font-sans tracking-tight">
-                Finance.
-              </span>
+            {collapsed && !isMobileOpen ? (
+              <Logo variant="mini" className="rounded-xl border border-gray-200" />
+            ) : (
+              <Logo variant="full" />
             )}
           </div>
 

@@ -16,6 +16,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Loader2, Mail, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Logo } from "@/components/Logo";
 
 export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false);
@@ -50,7 +51,7 @@ export default function ForgotPasswordPage() {
       <div className="flex flex-1 flex-col justify-center px-4 py-12 sm:px-6 lg:flex-none lg:px-20 xl:px-24 w-full lg:w-1/2">
         <div className="mx-auto w-full max-w-sm lg:w-96">
           <div className="mb-10">
-            <span className="flex items-center gap-2 font-bold text-xl">Finance App</span>
+            <Logo variant="full" className="h-8" />
           </div>
 
           {sent ? (
