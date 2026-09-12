@@ -36,6 +36,11 @@ export interface TransactionFilters {
   search?: string;
   page?: number;
   limit?: number;
+  /** Intervalo usado para os totais de receitas/despesas do mês nos cards.
+   * Independente de `startDate`/`endDate`, que podem estar restritos a um
+   * único dia selecionado na tela — os cards devem sempre refletir o mês. */
+  statsStartDate?: string;
+  statsEndDate?: string;
 }
 
 function buildParams(filters: TransactionFilters): string {
@@ -67,17 +72,21 @@ export function useTransactions(filters: TransactionFilters = {}) {
   });
 
   // Stats query — only date range, no type/category/search filter, limit=500
-  // Used for income/expense totals and active dates on MonthDateStrip
+  // Used for income/expense totals and active dates on MonthDateStrip.
+  // Uses statsStartDate/statsEndDate (the full month) when provided, so
+  // narrowing the table to a single day doesn't skew the "(Mês)" cards.
+  const statsStartDate = filters.statsStartDate ?? filters.startDate;
+  const statsEndDate = filters.statsEndDate ?? filters.endDate;
   const statsParams = buildParams({
-    startDate: filters.startDate,
-    endDate: filters.endDate,
+    startDate: statsStartDate,
+    endDate: statsEndDate,
     limit: 500,
   });
   const statsQuery = useQuery<PaginatedResponse<TransactionResponse>>({
     queryKey: ["transactions-stats", workspaceId, statsParams],
     queryFn: () =>
       api.get<PaginatedResponse<TransactionResponse>>(`/transactions?${statsParams}`),
-    enabled: !!workspaceId && !!(filters.startDate || filters.endDate),
+    enabled: !!workspaceId && !!(statsStartDate || statsEndDate),
   });
 
   const accountsQuery = useQuery<BankAccountResponse[]>({

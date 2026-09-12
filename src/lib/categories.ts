@@ -11,6 +11,7 @@ import {
   DollarSign,
   PartyPopper,
   FileText,
+  Scale,
   LucideIcon,
 } from "lucide-react";
 
@@ -34,6 +35,7 @@ export const CATEGORY_STYLES: Record<string, CategoryStyle> = {
   investment:    { color: "#4580FF", label: "Investimentos",  icon: TrendingUp },
   others:        { color: "#1E1E2D", label: "Outros",         icon: FileText },
   outros:        { color: "#1E1E2D", label: "Outros",         icon: FileText },
+  adjustment:    { color: "#64748B", label: "Ajuste",         icon: Scale },
 };
 
 export function getCategoryStyle(category: string): CategoryStyle {

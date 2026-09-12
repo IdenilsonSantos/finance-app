@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Upload, FileText, CheckCircle2, AlertCircle, Loader2, X, Info, RefreshCw, Plus, Landmark } from "lucide-react";
+import { Upload, FileText, CheckCircle2, AlertCircle, Loader2, X, Info, RefreshCw, Plus, Landmark, Scale } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +27,7 @@ import { BankAccountResponse } from "@/types/api";
 import { CreateWalletPayload, UpdateWalletPayload } from "@/hooks/useWallets";
 import { api } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/lib/format";
 
 interface ImportResult {
   imported: number;
@@ -36,6 +37,21 @@ interface ImportResult {
   accountName?: string;
   alreadyImported?: boolean;
   previousImportAt?: string;
+  periodStart?: string;
+  periodEnd?: string;
+  calculatedBalance?: number;
+  bankBalance?: number;
+  divergence?: number;
+  reconciled?: boolean;
+  requiresConfirmation?: boolean;
+  adjusted?: boolean;
+  possibleRedundantAdjustments?: {
+    id: string;
+    date: string;
+    amount: number;
+    type: "income" | "expense";
+    description: string | null;
+  }[];
 }
 
 interface Props {
@@ -53,6 +69,8 @@ export function ImportStatementDialog({ open, onOpenChange, bankAccounts, onSucc
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [deletingAdjustmentId, setDeletingAdjustmentId] = useState<string | null>(null);
+  const [dismissedAdjustmentIds, setDismissedAdjustmentIds] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const allAccounts = [
@@ -68,6 +86,7 @@ export function ImportStatementDialog({ open, onOpenChange, bankAccounts, onSucc
       setExtraAccounts([]);
       setFile(null);
       setResult(null);
+      setDismissedAdjustmentIds([]);
     }, 200);
   }
 
@@ -94,7 +113,21 @@ export function ImportStatementDialog({ open, onOpenChange, bankAccounts, onSucc
     setWalletDialogOpen(false);
   }
 
-  async function handleImport(force = false) {
+  async function handleDeleteAdjustment(id: string) {
+    setDeletingAdjustmentId(id);
+    try {
+      await api.delete(`/transactions/${id}`);
+      setDismissedAdjustmentIds((prev) => [...prev, id]);
+      toast.success("Ajuste removido");
+      onSuccess();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Erro ao remover ajuste");
+    } finally {
+      setDeletingAdjustmentId(null);
+    }
+  }
+
+  async function handleImport(force = false, adjustToBankBalance = false) {
     if (!file) return;
     setLoading(true);
     try {
@@ -102,6 +135,7 @@ export function ImportStatementDialog({ open, onOpenChange, bankAccounts, onSucc
       form.append("file", file);
       if (accountId) form.append("bankAccountId", accountId);
       if (force) form.append("force", "true");
+      if (adjustToBankBalance) form.append("adjustToBankBalance", "true");
       const data = await api.upload<ImportResult>("/bank-accounts/import-statement", form);
       if (data.alreadyImported) {
         setResult(data);
@@ -268,6 +302,44 @@ export function ImportStatementDialog({ open, onOpenChange, bankAccounts, onSucc
                   Este arquivo já foi processado anteriormente. Deseja importar mesmo assim? Transações duplicadas serão ignoradas automaticamente.
                 </p>
               </div>
+            ) : result.requiresConfirmation ? (
+              <div className="rounded-2xl border border-red-200 bg-red-50 p-5 space-y-3">
+                <div className="flex items-start gap-2.5">
+                  <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-px" />
+                  <div>
+                    <p className="text-sm font-bold text-slate-800">Importação não confirmada</p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      As movimentações do arquivo não sustentam o saldo final informado pelo banco.
+                      Nada foi salvo: o saldo da conta continua o mesmo de antes.
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-white rounded-xl p-3 border border-slate-100">
+                    <p className="text-[11px] text-slate-400">Se confirmar, o saldo ficaria em</p>
+                    <p className="text-sm font-bold text-slate-800">
+                      {result.calculatedBalance !== undefined ? formatCurrency(result.calculatedBalance) : "—"}
+                    </p>
+                  </div>
+                  <div className="bg-white rounded-xl p-3 border border-slate-100">
+                    <p className="text-[11px] text-slate-400">Saldo informado pelo banco no arquivo</p>
+                    <p className="text-sm font-bold text-slate-800">
+                      {result.bankBalance !== undefined ? formatCurrency(result.bankBalance) : "—"}
+                    </p>
+                  </div>
+                </div>
+                {result.divergence !== undefined && (
+                  <p className="text-xs font-semibold text-red-600">
+                    Diferença: {formatCurrency(Math.abs(result.divergence))}
+                    {result.divergence < 0 ? " a menos" : result.divergence > 0 ? " a mais" : ""}
+                  </p>
+                )}
+                <p className="text-xs text-slate-500">
+                  Confira se há transações duplicadas, ausentes ou com valor/data incorretos no
+                  arquivo. Você pode importar assim mesmo, ficando com a soma das transações do
+                  arquivo, ou confiar no saldo do banco e lançar um ajuste explícito pela diferença.
+                </p>
+              </div>
             ) : (
               <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5 space-y-4">
                 <div className="flex items-center gap-2">
@@ -283,6 +355,12 @@ export function ImportStatementDialog({ open, onOpenChange, bankAccounts, onSucc
                     {result.accountCreated && (
                       <p className="text-xs text-slate-500 mt-0.5">
                         Conta criada: <strong>{result.accountName}</strong>
+                      </p>
+                    )}
+                    {result.adjusted && result.divergence !== undefined && (
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Lançamento de ajuste criado ({formatCurrency(Math.abs(result.divergence))}) para
+                        bater com o saldo do banco.
                       </p>
                     )}
                   </div>
@@ -304,7 +382,54 @@ export function ImportStatementDialog({ open, onOpenChange, bankAccounts, onSucc
               </div>
             )}
 
-            <div className="flex gap-2 pt-1">
+            {result?.possibleRedundantAdjustments?.filter(
+              (adj) => !dismissedAdjustmentIds.includes(adj.id),
+            ).length ? (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 space-y-2.5">
+                <div className="flex items-start gap-2.5">
+                  <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                  <p className="text-xs text-slate-600">
+                    Este extrato cobre um período <strong>anterior</strong> ao que já existia
+                    nesta conta. O(s) ajuste(s) de conciliação abaixo pode(m) ter coberto, sem
+                    saber, justamente o saldo que este extrato agora explica de verdade — revise
+                    antes que o mesmo valor conte duas vezes.
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  {result?.possibleRedundantAdjustments
+                    ?.filter((adj) => !dismissedAdjustmentIds.includes(adj.id))
+                    .map((adj) => (
+                      <div
+                        key={adj.id}
+                        className="flex items-center justify-between gap-2 bg-white rounded-lg px-3 py-2 border border-amber-100"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-slate-700 truncate">
+                            {formatCurrency(adj.amount)} em{" "}
+                            {new Date(adj.date).toLocaleDateString("pt-BR")}
+                          </p>
+                          <p className="text-[11px] text-slate-400 truncate">{adj.description}</p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={deletingAdjustmentId === adj.id}
+                          onClick={() => handleDeleteAdjustment(adj.id)}
+                          className="h-7 px-2.5 rounded-lg text-xs shrink-0 text-red-600 border-red-200 hover:bg-red-50"
+                        >
+                          {deletingAdjustmentId === adj.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            "Apagar"
+                          )}
+                        </Button>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            ) : null}
+
+            <div className="flex gap-2 pt-1 min-w-0">
               {result?.alreadyImported ? (
                 <>
                   <Button
@@ -327,6 +452,42 @@ export function ImportStatementDialog({ open, onOpenChange, bankAccounts, onSucc
                     Importar mesmo assim
                   </Button>
                 </>
+              ) : result?.requiresConfirmation ? (
+                <div className="flex flex-col gap-2 w-full min-w-0">
+                  <Button
+                    onClick={() => handleImport(false, true)}
+                    disabled={loading}
+                    className="w-full min-w-0 bg-[#1E1E2D] text-white hover:bg-slate-800 rounded-2xl h-11 font-semibold gap-2"
+                  >
+                    {loading ? (
+                      <Loader2 className="w-4 h-4 shrink-0 animate-spin" />
+                    ) : (
+                      <Scale className="w-4 h-4 shrink-0" />
+                    )}
+                    <span className="truncate">Ajustar para o saldo do banco</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => handleImport(true)}
+                    disabled={loading}
+                    className="w-full min-w-0 rounded-2xl h-11 font-semibold gap-2"
+                  >
+                    {loading ? (
+                      <Loader2 className="w-4 h-4 shrink-0 animate-spin" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                    )}
+                    <span className="truncate">Importar mesmo assim</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={handleClose}
+                    disabled={loading}
+                    className="w-full rounded-2xl h-9 font-semibold text-slate-500"
+                  >
+                    Cancelar
+                  </Button>
+                </div>
               ) : result ? (
                 <Button
                   onClick={handleClose}

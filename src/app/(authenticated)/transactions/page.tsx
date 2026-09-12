@@ -130,13 +130,16 @@ export default function TransactionsPage() {
   const year = selectedMonth.getFullYear();
   const month = selectedMonth.getMonth();
 
+  // Full month range — always used for the income/expense cards, regardless
+  // of a specific day being selected below.
+  const monthStart = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+  const monthEnd = `${year}-${String(month + 1).padStart(2, "0")}-${String(new Date(year, month + 1, 0).getDate()).padStart(2, "0")}`;
+
   // Build date range for selected month (or specific day)
   const startDate = selectedDay
     ? `${year}-${String(month + 1).padStart(2, "0")}-${String(selectedDay).padStart(2, "0")}`
-    : `${year}-${String(month + 1).padStart(2, "0")}-01`;
-  const endDate = selectedDay
-    ? startDate
-    : `${year}-${String(month + 1).padStart(2, "0")}-${String(new Date(year, month + 1, 0).getDate()).padStart(2, "0")}`;
+    : monthStart;
+  const endDate = selectedDay ? startDate : monthEnd;
 
   const {
     transactions,
@@ -155,6 +158,8 @@ export default function TransactionsPage() {
   } = useTransactions({
     startDate,
     endDate,
+    statsStartDate: monthStart,
+    statsEndDate: monthEnd,
     type: typeFilter === "income" || typeFilter === "expense" ? typeFilter : undefined,
     category: categoryFilter !== "all" ? categoryFilter : undefined,
     accountId: accountFilter !== "all" ? accountFilter : undefined,
