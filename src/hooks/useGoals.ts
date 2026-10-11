@@ -74,6 +74,11 @@ export function useGoals(filters: GoalFilters = {}) {
     invalidate();
   }
 
+  async function withdrawGoal(id: string, amountInCents: number) {
+    await api.post(`/goals/${id}/withdraw`, { amount: amountInCents / 100 });
+    invalidate();
+  }
+
   return {
     goals: data?.data ?? [],
     total: data?.total ?? 0,
@@ -85,5 +90,6 @@ export function useGoals(filters: GoalFilters = {}) {
     updateGoal,
     deleteGoal,
     contributeGoal,
+    withdrawGoal,
   };
 }
