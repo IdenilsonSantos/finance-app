@@ -769,6 +769,9 @@ type NotifPrefs = {
   goalDeadline: boolean;
   scheduledReminder: boolean;
   transferCreated: boolean;
+  budgetAlert: boolean;
+  billReminder: boolean;
+  invoiceReminder: boolean;
 };
 
 const DEFAULT_PREFS: NotifPrefs = {
@@ -776,6 +779,9 @@ const DEFAULT_PREFS: NotifPrefs = {
   goalDeadline: true,
   scheduledReminder: true,
   transferCreated: false,
+  budgetAlert: true,
+  billReminder: true,
+  invoiceReminder: true,
 };
 
 function NotificationsSection() {
@@ -828,6 +834,24 @@ function NotificationsSection() {
 
   return (
     <SectionCard title="Preferências de Notificação" description="Controle quais alertas você deseja receber por e-mail">
+      <NotifRow
+        label="Contas a pagar e receber"
+        description="Lembrete 3 dias antes, no dia do vencimento e quando uma conta atrasar"
+        checked={prefs.billReminder}
+        onChange={() => toggle("billReminder")}
+      />
+      <NotifRow
+        label="Fatura do cartão"
+        description="Lembrete 3 dias antes e no dia do vencimento de uma fatura em aberto"
+        checked={prefs.invoiceReminder}
+        onChange={() => toggle("invoiceReminder")}
+      />
+      <NotifRow
+        label="Orçamento"
+        description="Avise quando um orçamento chegar a 80% ou for estourado"
+        checked={prefs.budgetAlert}
+        onChange={() => toggle("budgetAlert")}
+      />
       <NotifRow
         label="Meta alcançada"
         description="Avise quando você atingir 100% de uma meta"

@@ -15,7 +15,21 @@ import { useSession, signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { getInitials } from "@/lib/format";
 import Link from "next/link";
-import { Bell, Settings, LogOut, User, CheckCheck, Trophy, Clock, CalendarCheck, ArrowLeftRight, LucideIcon } from "lucide-react";
+import {
+  Bell,
+  Settings,
+  LogOut,
+  User,
+  CheckCheck,
+  Trophy,
+  Clock,
+  CalendarCheck,
+  ArrowLeftRight,
+  Gauge,
+  Receipt,
+  CreditCard,
+  LucideIcon,
+} from "lucide-react";
 import { useNotificationsContext as useNotifications } from "@/components/providers/NotificationsContext";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -32,6 +46,9 @@ const TYPE_ICONS: Record<string, LucideIcon> = {
   goalDeadline: Clock,
   scheduledReminder: CalendarCheck,
   transferCreated: ArrowLeftRight,
+  budgetAlert: Gauge,
+  billReminder: Receipt,
+  invoiceReminder: CreditCard,
 };
 
 export function Header({ title, subtitle, className, actions }: HeaderProps) {
