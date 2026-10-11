@@ -96,6 +96,21 @@ export interface TransferResponse {
   updatedAt: string;
 }
 
+// Categories
+
+/** Categoria personalizada do workspace (as padrão ficam em lib/categories). */
+export interface CategoryResponse {
+  id: string;
+  workspaceId: string;
+  name: string;
+  type: "income" | "expense";
+  color: string;
+  /** Nome do ícone (ver CUSTOM_CATEGORY_ICONS). */
+  icon: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Budgets
 
 /** Categoria do orçamento global do mês (teto de todas as despesas). */

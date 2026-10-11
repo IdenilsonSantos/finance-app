@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useCategories } from "@/hooks/useCategories";
 import {
   Plus,
   Search,
@@ -87,6 +88,8 @@ type TypeFilter = (typeof TYPE_TABS)[number]["id"];
 type SortOrder = "name_asc" | "name_desc" | "balance_highest" | "balance_lowest";
 
 export default function WalletsPage() {
+  // Categorias personalizadas: carrega e re-renderiza a página quando chegam.
+  useCategories();
   const {
     wallets,
     loading,

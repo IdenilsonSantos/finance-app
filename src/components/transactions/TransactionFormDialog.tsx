@@ -33,7 +33,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CATEGORY_STYLES } from "@/lib/categories";
+import { categorySelectOptions } from "@/lib/categories";
+import { useCategories } from "@/hooks/useCategories";
 import { getAccountTypeMeta, isCreditCard } from "@/lib/accounts";
 import { formatCurrency } from "@/lib/format";
 import { TransactionResponse, BankAccountResponse } from "@/types/api";
@@ -78,15 +79,6 @@ const schema = z.object({
 const INSTALLMENT_OPTIONS = Array.from({ length: 24 }, (_, i) => i + 1);
 
 const resolver = zodResolver(schema);
-
-const CATEGORIES = Object.entries(CATEGORY_STYLES)
-  .filter(([key]) => key !== "outros")
-  .map(([key, style]) => ({
-    key,
-    label: style.label,
-    color: style.color,
-    Icon: style.icon,
-  }));
 
 const PAYMENT_METHODS: { value: string; label: string; Icon: LucideIcon; color: string }[] = [
   { value: "pix",         label: "Pix",              Icon: QrCode,         color: "#00966B" },
@@ -182,6 +174,8 @@ function TransactionForm({
   const isInstallment = !!transaction?.installmentGroupId && (transaction.installmentTotal ?? 0) > 1;
   const isSubmitting = form.formState.isSubmitting;
   const currentType = form.watch("type");
+  // Recarrega as opções quando as categorias personalizadas chegam.
+  useCategories();
   const currentDate = form.watch("date");
   const currentFrequency = form.watch("frequency");
   // Conta pendente ("a pagar/receber") não vira agendamento, mesmo com data futura:
@@ -621,7 +615,7 @@ function TransactionForm({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {CATEGORIES.map(({ key, label, color, Icon }) => (
+                    {categorySelectOptions(currentType, field.value).map(({ key, label, color, icon: Icon }) => (
                       <SelectItem key={key} value={key}>
                         <span className="flex items-center gap-2">
                           <Icon className="w-3.5 h-3.5 shrink-0" style={{ color }} />

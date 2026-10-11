@@ -25,7 +25,8 @@ import { Input } from "@/components/ui/input";
 import { MonthDateStrip } from "@/components/ui/MonthDateStrip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CATEGORY_STYLES } from "@/lib/categories";
+import { categoryOptions } from "@/lib/categories";
+import { useCategories } from "@/hooks/useCategories";
 import { FilterTabs } from "@/components/ui/FilterTabs";
 import { Pagination } from "@/components/ui/Pagination";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -123,6 +124,8 @@ export default function TransactionsPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [accountFilter, setAccountFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "paid" | "pending">("all");
+  // Categorias personalizadas: carrega e re-renderiza a página quando chegam.
+  useCategories();
   const showAllPending = statusFilter === "pending";
   const [page, setPage] = useState(1);
 
@@ -514,11 +517,9 @@ export default function TransactionsPage() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">Todas</SelectItem>
-                          {Object.entries(CATEGORY_STYLES)
-                            .filter(([key]) => key !== "outros")
-                            .map(([key, style]) => (
-                              <SelectItem key={key} value={key}>{style.label}</SelectItem>
-                            ))}
+                          {categoryOptions().map((option) => (
+                            <SelectItem key={option.key} value={option.key}>{option.label}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>

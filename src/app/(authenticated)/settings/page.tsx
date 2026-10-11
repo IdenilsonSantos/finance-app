@@ -25,7 +25,9 @@ import {
   Mail,
   ChevronDown,
   MoreHorizontal,
+  Tags,
 } from "lucide-react";
+import { CategoriesSection } from "@/components/settings/CategoriesSection";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,6 +62,7 @@ const TABS = [
   { id: "security", label: "Segurança", icon: Shield },
   { id: "workspace", label: "Workspace", icon: Building2 },
   { id: "members", label: "Membros", icon: Users },
+  { id: "categories", label: "Categorias", icon: Tags },
   { id: "notifications", label: "Notificações", icon: Bell },
 ] as const;
 
@@ -1151,6 +1154,7 @@ export default function SettingsPage() {
         {activeTab === "security" && <SecuritySection />}
         {activeTab === "workspace" && <WorkspaceSection />}
         {activeTab === "members" && <MembersSection />}
+        {activeTab === "categories" && <CategoriesSection />}
         {activeTab === "notifications" && <NotificationsSection />}
       </div>
     </div>
