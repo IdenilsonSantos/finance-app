@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, PiggyBank, Landmark, CreditCard, LucideIcon, Pencil, Plus, ArrowRight, ArrowLeftRight } from "lucide-react";
+import { Building2, Pencil, Plus, ArrowRight, ArrowLeftRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -13,21 +13,8 @@ import { WalletFormDialog } from "@/components/wallets/WalletFormDialog";
 import { TransferFormDialog } from "@/components/wallets/TransferFormDialog";
 import { api } from "@/lib/api/client";
 import { useQueryClient } from "@tanstack/react-query";
-import { CreateWalletPayload, UpdateWalletPayload, CreateTransferPayload } from "@/hooks/useWallets";
-
-const TYPE_ICONS: Record<string, LucideIcon> = {
-  checking: Landmark,
-  savings: PiggyBank,
-  investment: Building2,
-  cash: CreditCard,
-};
-
-const TYPE_LABELS: Record<string, string> = {
-  checking: "C. Corrente",
-  savings: "Poupança",
-  investment: "Investimento",
-  cash: "Dinheiro",
-};
+import { CreateWalletPayload, UpdateWalletPayload, CreateTransferPayload, useWallets } from "@/hooks/useWallets";
+import { getAccountTypeMeta } from "@/lib/accounts";
 
 interface AccountsOverviewProps {
   accounts: DashboardAccount[];
@@ -44,16 +31,26 @@ export function AccountsOverview({ accounts, onMutate }: AccountsOverviewProps) 
   const [transferDialog, setTransferDialog] = useState(false);
   const [editing, setEditing] = useState<BankAccountResponse | null>(null);
 
-  const asBankAccounts: BankAccountResponse[] = accounts.map((a) => ({
-    id: a.id,
-    workspaceId: "",
-    name: a.name,
-    type: a.type,
-    color: a.color,
-    balance: a.balance,
-    createdAt: "",
-    updatedAt: "",
-  }));
+  // Usa as contas completas (com dados de cartão) para edição/transferência;
+  // o dashboard só traz um resumo de cada conta.
+  const { wallets } = useWallets();
+  const asBankAccounts: BankAccountResponse[] = accounts.map(
+    (a) =>
+      wallets.find((w) => w.id === a.id) ?? {
+        id: a.id,
+        workspaceId: "",
+        name: a.name,
+        type: a.type,
+        color: a.color,
+        balance: a.balance,
+        creditLimit: a.creditLimit,
+        closingDay: null,
+        dueDay: null,
+        archivedAt: null,
+        createdAt: "",
+        updatedAt: "",
+      },
+  );
 
   const handleAccountClick = (id: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -152,7 +149,7 @@ export function AccountsOverview({ accounts, onMutate }: AccountsOverviewProps) 
             <ScrollArea className="h-[350px] pr-4 -mr-4">
               <div className="space-y-3 pb-2">
                 {accounts.map((account) => {
-                  const Icon = TYPE_ICONS[account.type] || Landmark;
+                  const Icon = getAccountTypeMeta(account.type).icon;
                   const isSelected = currentAccountId === account.id;
                   return (
                     <div
@@ -177,7 +174,7 @@ export function AccountsOverview({ accounts, onMutate }: AccountsOverviewProps) 
                             {account.name}
                           </h4>
                           <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">
-                            {TYPE_LABELS[account.type] || account.type}
+                            {getAccountTypeMeta(account.type).label}
                           </p>
                         </div>
                       </div>

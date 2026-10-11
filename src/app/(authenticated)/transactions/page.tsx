@@ -213,6 +213,8 @@ export default function TransactionsPage() {
           description: tx.description,
           beneficiary: tx.beneficiary,
           paymentMethod: tx.paymentMethod,
+          installmentNumber: tx.installmentNumber,
+          installmentTotal: tx.installmentTotal,
           date: tx.date,
           bankAccountName: account?.name ?? null,
           bankAccountColor: account?.color ?? null,

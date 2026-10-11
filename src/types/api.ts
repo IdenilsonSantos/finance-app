@@ -52,6 +52,10 @@ export interface TransactionResponse {
   category: string;
   paymentMethod: string | null;
   date: string;
+  /** Compras parceladas no cartão: parcelas compartilham o grupo. */
+  installmentGroupId: string | null;
+  installmentNumber: number | null;
+  installmentTotal: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -102,9 +106,34 @@ export interface BankAccountResponse {
   name: string;
   type: string;
   color: string;
+  /** Em cartões de crédito fica negativo enquanto houver valor a pagar. */
   balance: number;
+  /** Cartão de crédito: limite em centavos. */
+  creditLimit: number | null;
+  closingDay: number | null;
+  dueDay: number | null;
+  archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export type InvoiceStatus = "open" | "closed" | "paid" | "overdue";
+
+export interface InvoiceResponse {
+  /** Mês da fatura (mês do vencimento), YYYY-MM. */
+  month: string;
+  start: string;
+  end: string;
+  closingDate: string;
+  dueDate: string;
+  status: InvoiceStatus;
+  total: number;
+  paidAmount: number;
+  remaining: number;
+  creditLimit: number | null;
+  usedLimit: number;
+  availableLimit: number | null;
+  transactions: TransactionResponse[];
 }
 
 // Auth
@@ -158,6 +187,7 @@ export interface DashboardAccount {
   type: string;
   balance: number;
   color: string;
+  creditLimit: number | null;
 }
 
 export interface DashboardFinancialInsights {

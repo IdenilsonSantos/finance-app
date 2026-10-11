@@ -26,6 +26,8 @@ export interface TransactionItem {
   date: string;
   bankAccountName: string | null;
   bankAccountColor: string | null;
+  installmentNumber?: number | null;
+  installmentTotal?: number | null;
 }
 
 interface TransactionsTableProps {
@@ -112,6 +114,11 @@ function TxCells({
                   {tx.description || tx.beneficiary || (
                     <span className="text-slate-300 font-normal italic">—</span>
                   )}
+                  {tx.installmentTotal && tx.installmentTotal > 1 ? (
+                    <span className="ml-1.5 text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full align-middle">
+                      {tx.installmentNumber}/{tx.installmentTotal}
+                    </span>
+                  ) : null}
                 </p>
               </TooltipTrigger>
               {(tx.description || tx.beneficiary) && (

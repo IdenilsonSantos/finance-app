@@ -4,7 +4,8 @@ import { useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, CheckCircle, ArrowRight, Building2, PiggyBank, Landmark, CreditCard } from "lucide-react";
+import { Loader2, CheckCircle, ArrowRight } from "lucide-react";
+import { format } from "date-fns";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -35,14 +36,8 @@ import { BankAccountResponse } from "@/types/api";
 import { CreateTransferPayload } from "@/hooks/useWallets";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { LucideIcon } from "lucide-react";
+import { activeAccounts, getAccountTypeMeta, isCreditCard } from "@/lib/accounts";
 
-const TYPE_ICONS: Record<string, LucideIcon> = {
-  checking: Landmark,
-  savings: PiggyBank,
-  investment: Building2,
-  cash: CreditCard,
-};
 
 const baseSchema = z.object({
   fromAccountId: z.string().min(1, "Selecione a conta de origem"),
@@ -68,7 +63,8 @@ function makeSchema(accounts: BankAccountResponse[]) {
     }
 
     const from = accounts.find((a) => a.id === d.fromAccountId);
-    if (from && d.amount && parseFloat(d.amount) > from.balance / 100) {
+    // Cartão de crédito não é origem de saldo (seria saque no crédito).
+    if (from && !isCreditCard(from) && d.amount && parseFloat(d.amount) > from.balance / 100) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: `Saldo insuficiente. Disponível: ${formatCurrency(from.balance)}`,
@@ -78,23 +74,42 @@ function makeSchema(accounts: BankAccountResponse[]) {
   });
 }
 
+/** Valores iniciais opcionais (ex.: pagamento de fatura de cartão). */
+export interface TransferDefaults {
+  fromAccountId?: string;
+  toAccountId?: string;
+  /** Centavos. */
+  amount?: number;
+  description?: string;
+}
+
 interface TransferFormProps {
   accounts: BankAccountResponse[];
+  defaults?: TransferDefaults;
   onCreate: (data: CreateTransferPayload) => Promise<void>;
   onClose: () => void;
 }
 
-function TransferForm({ accounts, onCreate, onClose }: TransferFormProps) {
+function TransferForm({ accounts, defaults, onCreate, onClose }: TransferFormProps) {
+  const toDefault = defaults?.toAccountId ?? accounts[1]?.id ?? "";
+  // Origem padrão: primeira conta que não seja o destino nem um cartão.
+  const fromDefault =
+    defaults?.fromAccountId ??
+    accounts.find((a) => a.id !== toDefault && !isCreditCard(a))?.id ??
+    accounts.find((a) => a.id !== toDefault)?.id ??
+    "";
+
   const form = useForm<FormValues>({
     resolver: zodResolver(makeSchema(accounts)),
     mode: "onChange",
     reValidateMode: "onChange",
     defaultValues: {
-      fromAccountId: accounts[0]?.id ?? "",
-      toAccountId: accounts[1]?.id ?? "",
-      amount: "",
-      description: "",
-      date: new Date().toISOString().slice(0, 10),
+      fromAccountId: fromDefault,
+      toAccountId: toDefault,
+      amount: defaults?.amount ? (defaults.amount / 100).toFixed(2) : "",
+      description: defaults?.description ?? "",
+      // Data local (toISOString usaria UTC e viraria "amanhã" depois das 21h).
+      date: format(new Date(), "yyyy-MM-dd"),
     },
   });
 
@@ -138,7 +153,7 @@ function TransferForm({ accounts, onCreate, onClose }: TransferFormProps) {
               className="w-9 h-9 rounded-xl flex items-center justify-center text-white shrink-0"
               style={{ backgroundColor: fromAccount.color }}
             >
-              {(() => { const Icon = TYPE_ICONS[fromAccount.type] ?? Landmark; return <Icon className="w-4 h-4" />; })()}
+              {(() => { const Icon = getAccountTypeMeta(fromAccount.type).icon; return <Icon className="w-4 h-4" />; })()}
             </div>
             <div className="min-w-0">
               <p className="text-xs font-bold text-slate-900 truncate">{fromAccount.name}</p>
@@ -149,7 +164,7 @@ function TransferForm({ accounts, onCreate, onClose }: TransferFormProps) {
               className="w-9 h-9 rounded-xl flex items-center justify-center text-white shrink-0"
               style={{ backgroundColor: toAccount.color }}
             >
-              {(() => { const Icon = TYPE_ICONS[toAccount.type] ?? Landmark; return <Icon className="w-4 h-4" />; })()}
+              {(() => { const Icon = getAccountTypeMeta(toAccount.type).icon; return <Icon className="w-4 h-4" />; })()}
             </div>
             <div className="min-w-0">
               <p className="text-xs font-bold text-slate-900 truncate">{toAccount.name}</p>
@@ -173,7 +188,7 @@ function TransferForm({ accounts, onCreate, onClose }: TransferFormProps) {
                   </FormControl>
                   <SelectContent>
                     {accounts.map((a) => {
-                      const Icon = TYPE_ICONS[a.type] ?? Landmark;
+                      const Icon = getAccountTypeMeta(a.type).icon;
                       return (
                         <SelectItem key={a.id} value={a.id}>
                           <span className="flex items-center gap-2">
@@ -206,7 +221,7 @@ function TransferForm({ accounts, onCreate, onClose }: TransferFormProps) {
                     {accounts
                       .filter((a) => a.id !== fromId)
                       .map((a) => {
-                        const Icon = TYPE_ICONS[a.type] ?? Landmark;
+                        const Icon = getAccountTypeMeta(a.type).icon;
                         return (
                           <SelectItem key={a.id} value={a.id}>
                             <span className="flex items-center gap-2">
@@ -305,22 +320,33 @@ interface TransferFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   accounts: BankAccountResponse[];
+  defaults?: TransferDefaults;
+  title?: string;
+  subtitle?: string;
   onCreate: (data: CreateTransferPayload) => Promise<void>;
 }
 
-export function TransferFormDialog({ open, onOpenChange, accounts, onCreate }: TransferFormDialogProps) {
+export function TransferFormDialog({
+  open,
+  onOpenChange,
+  accounts,
+  defaults,
+  title = "Transferência entre contas",
+  subtitle = "Mova saldo entre suas contas instantaneamente",
+  onCreate,
+}: TransferFormDialogProps) {
+  const selectable = activeAccounts(accounts);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Transferência entre contas</DialogTitle>
-          <p className="text-sm text-slate-400">
-            Mova saldo entre suas contas instantaneamente
-          </p>
+          <DialogTitle>{title}</DialogTitle>
+          <p className="text-sm text-slate-400">{subtitle}</p>
         </DialogHeader>
         <TransferForm
           key={open ? "open" : "closed"}
-          accounts={accounts}
+          accounts={selectable}
+          defaults={defaults}
           onCreate={onCreate}
           onClose={() => onOpenChange(false)}
         />

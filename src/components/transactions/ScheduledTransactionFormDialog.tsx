@@ -105,7 +105,7 @@ export function ScheduledTransactionFormDialog({
           endDate: item.endDate ?? "",
         }
       : {
-          bankAccountId: bankAccounts[0]?.id ?? "",
+          bankAccountId: bankAccounts.find((a) => !a.archivedAt)?.id ?? "",
           amount: "",
           type: "expense",
           description: "",
@@ -308,7 +308,9 @@ export function ScheduledTransactionFormDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {bankAccounts.map((account) => (
+                      {bankAccounts
+                        .filter((a) => !a.archivedAt || a.id === item?.bankAccountId)
+                        .map((account) => (
                         <SelectItem key={account.id} value={account.id}>
                           <span className="flex items-center gap-2">
                             <Landmark className="w-3.5 h-3.5 shrink-0" style={{ color: account.color }} />

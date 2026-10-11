@@ -73,10 +73,11 @@ export function ImportStatementDialog({ open, onOpenChange, bankAccounts, onSucc
   const [dismissedAdjustmentIds, setDismissedAdjustmentIds] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Extratos não podem ser importados em contas arquivadas.
   const allAccounts = [
     ...bankAccounts,
     ...extraAccounts.filter((e) => !bankAccounts.some((b) => b.id === e.id)),
-  ];
+  ].filter((a) => !a.archivedAt);
 
   function handleClose() {
     if (loading) return;

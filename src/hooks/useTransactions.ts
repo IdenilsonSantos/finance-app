@@ -19,6 +19,8 @@ export interface CreateTransactionPayload {
   beneficiary?: string;
   paymentMethod?: string;
   date: string;
+  /** Cartão de crédito: `amount` é o total, dividido em N parcelas mensais. */
+  installments?: number;
 }
 
 export interface UpdateTransactionPayload {
@@ -118,8 +120,9 @@ export function useTransactions(filters: TransactionFilters = {}) {
     invalidate();
   }
 
-  async function deleteTransaction(id: string) {
-    await api.delete(`/transactions/${id}`);
+  /** `installments` exclui todas as parcelas da compra. */
+  async function deleteTransaction(id: string, scope: "single" | "installments" = "single") {
+    await api.delete(`/transactions/${id}${scope === "installments" ? "?scope=installments" : ""}`);
     invalidate();
   }
 

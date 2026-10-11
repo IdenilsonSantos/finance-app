@@ -13,7 +13,11 @@ import {
   Building2,
   CreditCard,
   ArrowLeftRight,
+  Banknote,
+  Archive,
 } from "lucide-react";
+import { CreditCardInvoiceDialog } from "@/components/wallets/CreditCardInvoiceDialog";
+import { activeAccounts, isCreditCard } from "@/lib/accounts";
 import { StatCard } from "@/components/ui/StatCard";
 import { toast } from "sonner";
 import { Header } from "@/components/Header";
@@ -74,15 +78,28 @@ const TYPE_TABS = [
   { id: "checking", label: "C. Corrente", icon: Landmark },
   { id: "savings", label: "Poupança", icon: PiggyBank },
   { id: "investment", label: "Investimento", icon: Building2 },
-  { id: "cash", label: "Dinheiro", icon: CreditCard },
+  { id: "cash", label: "Dinheiro", icon: Banknote },
+  { id: "credit_card", label: "Cartões", icon: CreditCard },
+  { id: "archived", label: "Arquivadas", icon: Archive },
 ] as const;
 
 type TypeFilter = (typeof TYPE_TABS)[number]["id"];
 type SortOrder = "name_asc" | "name_desc" | "balance_highest" | "balance_lowest";
 
 export default function WalletsPage() {
-  const { wallets, loading, error, createWallet, updateWallet, adjustBalance, deleteWallet, createTransfer } =
-    useWallets();
+  const {
+    wallets,
+    loading,
+    error,
+    createWallet,
+    updateWallet,
+    adjustBalance,
+    archiveWallet,
+    unarchiveWallet,
+    deleteWallet,
+    createTransfer,
+  } = useWallets();
+  const [invoiceAccount, setInvoiceAccount] = useState<BankAccountResponse | null>(null);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
@@ -93,13 +110,51 @@ export default function WalletsPage() {
   const [sortOrder, setSortOrder] = useState<SortOrder>("name_asc");
   const hasActiveFilters = sortOrder !== "name_asc";
 
-  const totalBalance = wallets.reduce((s, w) => s + w.balance, 0);
-  const positiveCount = wallets.filter((w) => w.balance >= 0).length;
-  const negativeCount = wallets.filter((w) => w.balance < 0).length;
+  const active = activeAccounts(wallets);
+  const archivedCount = wallets.length - active.length;
+  const cards = active.filter(isCreditCard);
+  const nonCards = active.filter((w) => !isCreditCard(w));
+  // Saldo líquido: contas menos o que está devido nos cartões.
+  const totalBalance = active.reduce((s, w) => s + w.balance, 0);
+  const positiveCount = nonCards.filter((w) => w.balance >= 0).length;
+  const negativeCount = nonCards.filter((w) => w.balance < 0).length;
+  const cardDebt = cards.reduce((s, w) => s + Math.max(0, -w.balance), 0);
+  const cardAvailable = cards.reduce(
+    (s, w) => s + (w.creditLimit !== null ? Math.max(0, w.creditLimit - Math.max(0, -w.balance)) : 0),
+    0,
+  );
+  const richest = nonCards.reduce<BankAccountResponse | null>(
+    (best, w) => (!best || w.balance > best.balance ? w : best),
+    null,
+  );
+
+  async function handleArchive(wallet: BankAccountResponse) {
+    try {
+      await archiveWallet(wallet.id);
+      toast.success(`"${wallet.name}" arquivada`);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Erro ao arquivar conta");
+    }
+  }
+
+  async function handleUnarchive(wallet: BankAccountResponse) {
+    try {
+      await unarchiveWallet(wallet.id);
+      toast.success(`"${wallet.name}" desarquivada`);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Erro ao desarquivar conta");
+    }
+  }
 
   const filtered = useMemo(() => {
     let list = wallets.filter((w) => {
-      if (typeFilter !== "all" && w.type !== typeFilter) return false;
+      if (typeFilter === "archived") {
+        if (!w.archivedAt) return false;
+      } else if (w.archivedAt) {
+        return false;
+      } else if (typeFilter !== "all" && w.type !== typeFilter) {
+        return false;
+      }
       if (search) {
         const q = search.toLowerCase();
         return w.name.toLowerCase().includes(q);
@@ -144,7 +199,7 @@ export default function WalletsPage() {
         subtitle="Gerencie suas contas e saldos"
         actions={
           <div className="flex items-center gap-2">
-            {wallets.length >= 2 && (
+            {active.length >= 2 && (
               <Button
                 onClick={() => setTransferOpen(true)}
                 variant="outline"
@@ -178,34 +233,53 @@ export default function WalletsPage() {
             valueClassName={totalBalance < 0 ? "text-red-400" : "text-white"}
             loading={loading}
             footer={
-              wallets.length > 0
-                ? `${wallets.length} conta${wallets.length > 1 ? "s" : ""} ativa${wallets.length > 1 ? "s" : ""}`
+              active.length > 0
+                ? `${active.length} conta${active.length > 1 ? "s" : ""} ativa${active.length > 1 ? "s" : ""}` +
+                  (cards.length > 0 ? " · já descontados os cartões" : "")
                 : "Nenhuma conta cadastrada"
             }
           />
-          <StatCard
-            label="Contas Positivas"
-            value={positiveCount}
-            icon={TrendingUp}
-            iconClassName="bg-emerald-50 text-emerald-500"
-            loading={loading}
-            footer={
-              negativeCount > 0
-                ? `${negativeCount} conta${negativeCount > 1 ? "s" : ""} negativa${negativeCount > 1 ? "s" : ""}`
-                : "Todas no positivo"
-            }
-          />
+          {cards.length > 0 ? (
+            <StatCard
+              label="Em Cartões"
+              value={cardDebt}
+              format={formatCurrency}
+              icon={CreditCard}
+              iconClassName="bg-red-50 text-red-500"
+              loading={loading}
+              footer={
+                cardAvailable > 0
+                  ? `${formatCurrency(cardAvailable)} de limite disponível`
+                  : `${cards.length} cart${cards.length > 1 ? "ões" : "ão"}`
+              }
+            />
+          ) : (
+            <StatCard
+              label="Contas Positivas"
+              value={positiveCount}
+              icon={TrendingUp}
+              iconClassName="bg-emerald-50 text-emerald-500"
+              loading={loading}
+              footer={
+                negativeCount > 0
+                  ? `${negativeCount} conta${negativeCount > 1 ? "s" : ""} negativa${negativeCount > 1 ? "s" : ""}`
+                  : "Todas no positivo"
+              }
+            />
+          )}
           <StatCard
             label="Maior Saldo"
-            value={wallets.length > 0 ? Math.max(...wallets.map((w) => w.balance)) : 0}
+            value={richest?.balance ?? 0}
             format={formatCurrency}
             icon={Landmark}
             iconClassName="bg-blue-50 text-blue-500"
             loading={loading}
             footer={
-              wallets.length > 0
-                ? wallets.reduce((best, w) => (w.balance > best.balance ? w : best), wallets[0]).name
-                : "—"
+              richest
+                ? richest.name
+                : archivedCount > 0
+                  ? `${archivedCount} arquivada${archivedCount > 1 ? "s" : ""}`
+                  : "—"
             }
           />
         </div>
@@ -326,6 +400,9 @@ export default function WalletsPage() {
               deletingId={deletingId}
               onEdit={openEdit}
               onDelete={handleDelete}
+              onInvoice={setInvoiceAccount}
+              onArchive={handleArchive}
+              onUnarchive={handleUnarchive}
             />
           </div>
         )}
@@ -349,6 +426,13 @@ export default function WalletsPage() {
         onOpenChange={setTransferOpen}
         accounts={wallets}
         onCreate={createTransfer}
+      />
+
+      <CreditCardInvoiceDialog
+        account={invoiceAccount}
+        accounts={wallets}
+        onOpenChange={(open) => !open && setInvoiceAccount(null)}
+        onPay={createTransfer}
       />
     </div>
   );

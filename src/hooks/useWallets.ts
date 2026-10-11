@@ -5,14 +5,21 @@ import { useSession } from "next-auth/react";
 import { api } from "@/lib/api/client";
 import { BankAccountResponse } from "@/types/api";
 
-export interface CreateWalletPayload {
+export interface CreditCardFields {
+  /** Limite em centavos. */
+  creditLimit?: number | null;
+  closingDay?: number;
+  dueDay?: number;
+}
+
+export interface CreateWalletPayload extends CreditCardFields {
   name: string;
   type: string;
   color: string;
   initialBalance: number;
 }
 
-export interface UpdateWalletPayload {
+export interface UpdateWalletPayload extends CreditCardFields {
   name?: string;
   type?: string;
   color?: string;
@@ -61,6 +68,16 @@ export function useWallets() {
     invalidate();
   }
 
+  async function archiveWallet(id: string) {
+    await api.post(`/bank-accounts/${id}/archive`);
+    invalidate();
+  }
+
+  async function unarchiveWallet(id: string) {
+    await api.post(`/bank-accounts/${id}/unarchive`);
+    invalidate();
+  }
+
   async function deleteWallet(id: string) {
     await api.delete(`/bank-accounts/${id}`);
     invalidate();
@@ -78,6 +95,8 @@ export function useWallets() {
     createWallet,
     updateWallet,
     adjustBalance,
+    archiveWallet,
+    unarchiveWallet,
     deleteWallet,
     createTransfer,
     refetch: () => invalidate(),
