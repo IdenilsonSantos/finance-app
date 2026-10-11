@@ -117,6 +117,34 @@ async function upload<T>(path: string, formData: FormData): Promise<T> {
   return response.json();
 }
 
+/**
+ * Baixa um arquivo autenticado (ex.: CSV) e dispara o "salvar como" do
+ * navegador. O nome vem do Content-Disposition, com `fallbackName` de reserva.
+ */
+async function download(path: string, fallbackName: string): Promise<void> {
+  const session = await getSession();
+  const headers: Record<string, string> = {};
+  if (session?.accessToken) headers["Authorization"] = `Bearer ${session.accessToken}`;
+  if (session?.workspaceId) headers["x-workspace-id"] = session.workspaceId;
+
+  const response = await fetch(`${BASE_URL}${path}`, { headers, credentials: "include" });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: "Erro ao baixar arquivo" }));
+    throw new Error(error.message ?? `HTTP ${response.status}`);
+  }
+
+  const disposition = response.headers.get("Content-Disposition") ?? "";
+  const filename = /filename="?([^";]+)"?/.exec(disposition)?.[1] ?? fallbackName;
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 export const api = {
   get: <T>(path: string, options?: RequestOptions) =>
     request<T>(path, { ...options, method: "GET" }),
@@ -131,4 +159,6 @@ export const api = {
     request<T>(path, { ...options, method: "DELETE" }),
 
   upload: <T>(path: string, formData: FormData) => upload<T>(path, formData),
+
+  download: (path: string, fallbackName: string) => download(path, fallbackName),
 };

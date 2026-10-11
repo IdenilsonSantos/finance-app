@@ -128,6 +128,12 @@ export function useTransactions(filters: TransactionFilters = {}) {
     invalidate();
   }
 
+  /** Baixa em CSV as transações dos filtros atuais (todas as páginas). */
+  async function exportCsv() {
+    const params = buildParams({ ...filters, page: undefined, limit: undefined });
+    await api.download(`/transactions/export?${params}`, "transacoes.csv");
+  }
+
   /**
    * Converte em transferência (ex.: aplicação/resgate lançado como despesa).
    * Sem conta, usa a conta de investimento vinculada (criada se preciso).
@@ -168,6 +174,7 @@ export function useTransactions(filters: TransactionFilters = {}) {
     updateTransaction,
     deleteTransaction,
     convertToTransfer,
+    exportCsv,
     refetch: () => invalidate(),
   };
 }
