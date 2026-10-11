@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { categoryOptions, getCategoryStyle } from "@/lib/categories";
+import { categoryOptions, getCategoryStyle, NON_FLOW_CATEGORIES } from "@/lib/categories";
 import { BudgetSummaryItem, GLOBAL_BUDGET_CATEGORY } from "@/types/api";
 
 const schema = z.object({
@@ -42,7 +42,10 @@ function BudgetForm({ budget, usedCategories, onCreate, onUpdate, onDelete, onCl
   const isEdit = !!budget;
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const available = [GLOBAL_BUDGET_CATEGORY, ...categoryOptions("expense").map((o) => o.key)].filter(
+  const budgetable = categoryOptions("expense")
+    .map((o) => o.key)
+    .filter((key) => !(NON_FLOW_CATEGORIES as readonly string[]).includes(key));
+  const available = [GLOBAL_BUDGET_CATEGORY, ...budgetable].filter(
     (c) => c === budget?.category || !usedCategories.includes(c),
   );
 

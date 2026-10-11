@@ -260,8 +260,8 @@ function TransactionForm({
         (a) =>
           a.id !== transaction.bankAccountId &&
           a.id !== linkedInvestment?.id &&
-          !a.archivedAt &&
-          !isCreditCard(a),
+          // Cartão como destino = pagamento de fatura lançado como despesa.
+          !a.archivedAt,
       )
     : [];
   const canConvert =

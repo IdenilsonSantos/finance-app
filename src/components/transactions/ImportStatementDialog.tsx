@@ -37,6 +37,8 @@ interface ImportResult {
   /** Aplicações/resgates registrados como transferência. */
   investmentTransfers?: number;
   investmentAccountName?: string;
+  /** Pagamentos de fatura registrados como transferência para o cartão. */
+  cardPayments?: number;
   total: number;
   accountCreated?: boolean;
   accountName?: string;
@@ -368,6 +370,13 @@ export function ImportStatementDialog({ open, onOpenChange, bankAccounts, onSucc
                         {result.settled} conta{result.settled > 1 ? "s" : ""} pendente
                         {result.settled > 1 ? "s" : ""} marcada{result.settled > 1 ? "s" : ""} como paga
                         {result.settled > 1 ? "s" : ""}.
+                      </p>
+                    )}
+                    {!!result.cardPayments && (
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {result.cardPayments}{" "}
+                        {result.cardPayments > 1 ? "pagamentos de fatura registrados" : "pagamento de fatura registrado"}{" "}
+                        como transferência para o cartão (as compras do cartão é que contam como despesa).
                       </p>
                     )}
                     {!!result.investmentTransfers && (
