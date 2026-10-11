@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ArrowLeftRight, ArrowRight, Trash2 } from "lucide-react";
+import { ArrowLeftRight, ArrowRight, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -14,6 +14,7 @@ interface TransfersListProps {
   transfers: TransferResponse[];
   bankAccounts: BankAccountResponse[];
   loading?: boolean;
+  onEdit?: (transfer: TransferResponse) => void;
   onDelete: (id: string) => Promise<void>;
 }
 
@@ -29,7 +30,7 @@ function AccountBadge({ account }: { account?: BankAccountResponse }) {
   );
 }
 
-export function TransfersList({ transfers, bankAccounts, loading, onDelete }: TransfersListProps) {
+export function TransfersList({ transfers, bankAccounts, loading, onEdit, onDelete }: TransfersListProps) {
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -86,6 +87,17 @@ export function TransfersList({ transfers, bankAccounts, loading, onDelete }: Tr
                 {format(new Date(t.date + "T12:00:00"), "dd 'de' MMM.", { locale: ptBR })}
               </p>
             </div>
+            {onEdit && (
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Editar transferência"
+                className="w-8 h-8 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                onClick={() => onEdit(t)}
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"

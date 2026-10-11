@@ -32,7 +32,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { DatePicker } from "@/components/ui/date-picker";
-import { BankAccountResponse } from "@/types/api";
+import { BankAccountResponse, TransferResponse } from "@/types/api";
 import { CreateTransferPayload } from "@/hooks/useWallets";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -52,7 +52,8 @@ const baseSchema = z.object({
 
 type FormValues = z.infer<typeof baseSchema>;
 
-function makeSchema(accounts: BankAccountResponse[]) {
+/** Na edição, o valor original da transferência volta para a conta de origem. */
+function makeSchema(accounts: BankAccountResponse[], editing?: TransferResponse | null) {
   return baseSchema.superRefine((d, ctx) => {
     if (d.fromAccountId && d.toAccountId && d.fromAccountId === d.toAccountId) {
       ctx.addIssue({
@@ -64,10 +65,12 @@ function makeSchema(accounts: BankAccountResponse[]) {
 
     const from = accounts.find((a) => a.id === d.fromAccountId);
     // Cartão de crédito não é origem de saldo (seria saque no crédito).
-    if (from && !isCreditCard(from) && d.amount && parseFloat(d.amount) > from.balance / 100) {
+    const available =
+      (from?.balance ?? 0) + (editing && editing.fromAccountId === from?.id ? editing.amount : 0);
+    if (from && !isCreditCard(from) && d.amount && parseFloat(d.amount) > available / 100) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: `Saldo insuficiente. Disponível: ${formatCurrency(from.balance)}`,
+        message: `Saldo insuficiente. Disponível: ${formatCurrency(available)}`,
         path: ["amount"],
       });
     }
@@ -86,30 +89,38 @@ export interface TransferDefaults {
 interface TransferFormProps {
   accounts: BankAccountResponse[];
   defaults?: TransferDefaults;
+  transfer?: TransferResponse | null;
   onCreate: (data: CreateTransferPayload) => Promise<void>;
+  onUpdate?: (id: string, data: CreateTransferPayload) => Promise<void>;
   onClose: () => void;
 }
 
-function TransferForm({ accounts, defaults, onCreate, onClose }: TransferFormProps) {
-  const toDefault = defaults?.toAccountId ?? accounts[1]?.id ?? "";
+function TransferForm({ accounts, defaults, transfer, onCreate, onUpdate, onClose }: TransferFormProps) {
+  const isEdit = !!transfer && !!onUpdate;
+  const toDefault = transfer?.toAccountId ?? defaults?.toAccountId ?? accounts[1]?.id ?? "";
   // Origem padrão: primeira conta que não seja o destino nem um cartão.
   const fromDefault =
+    transfer?.fromAccountId ??
     defaults?.fromAccountId ??
     accounts.find((a) => a.id !== toDefault && !isCreditCard(a))?.id ??
     accounts.find((a) => a.id !== toDefault)?.id ??
     "";
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(makeSchema(accounts)),
+    resolver: zodResolver(makeSchema(accounts, transfer)),
     mode: "onChange",
     reValidateMode: "onChange",
     defaultValues: {
       fromAccountId: fromDefault,
       toAccountId: toDefault,
-      amount: defaults?.amount ? (defaults.amount / 100).toFixed(2) : "",
-      description: defaults?.description ?? "",
+      amount: transfer
+        ? (transfer.amount / 100).toFixed(2)
+        : defaults?.amount
+          ? (defaults.amount / 100).toFixed(2)
+          : "",
+      description: transfer?.description ?? defaults?.description ?? "",
       // Data local (toISOString usaria UTC e viraria "amanhã" depois das 21h).
-      date: format(new Date(), "yyyy-MM-dd"),
+      date: transfer?.date ?? format(new Date(), "yyyy-MM-dd"),
     },
   });
 
@@ -129,18 +140,24 @@ function TransferForm({ accounts, defaults, onCreate, onClose }: TransferFormPro
   }
 
   async function onSubmit(values: FormValues) {
+    const payload = {
+      fromAccountId: values.fromAccountId,
+      toAccountId: values.toAccountId,
+      amount: parseFloat(values.amount),
+      description: values.description || undefined,
+      date: values.date,
+    };
     try {
-      await onCreate({
-        fromAccountId: values.fromAccountId,
-        toAccountId: values.toAccountId,
-        amount: parseFloat(values.amount),
-        description: values.description || undefined,
-        date: values.date,
-      });
-      toast.success("Transferência realizada");
+      if (isEdit && transfer && onUpdate) {
+        await onUpdate(transfer.id, payload);
+        toast.success("Transferência atualizada");
+      } else {
+        await onCreate(payload);
+        toast.success("Transferência realizada");
+      }
       onClose();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Erro ao realizar transferência");
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar transferência");
     }
   }
 
@@ -301,7 +318,7 @@ function TransferForm({ accounts, defaults, onCreate, onClose }: TransferFormPro
           ) : (
             <>
               <CheckCircle className="w-4 h-4" />
-              Transferir
+              {isEdit ? "Salvar Alterações" : "Transferir"}
             </>
           )}
         </Button>
@@ -323,7 +340,10 @@ interface TransferFormDialogProps {
   defaults?: TransferDefaults;
   title?: string;
   subtitle?: string;
+  /** Transferência a editar (requer `onUpdate`). */
+  transfer?: TransferResponse | null;
   onCreate: (data: CreateTransferPayload) => Promise<void>;
+  onUpdate?: (id: string, data: CreateTransferPayload) => Promise<void>;
 }
 
 export function TransferFormDialog({
@@ -331,23 +351,33 @@ export function TransferFormDialog({
   onOpenChange,
   accounts,
   defaults,
-  title = "Transferência entre contas",
-  subtitle = "Mova saldo entre suas contas instantaneamente",
+  title,
+  subtitle,
+  transfer,
   onCreate,
+  onUpdate,
 }: TransferFormDialogProps) {
   const selectable = activeAccounts(accounts);
+  const isEdit = !!transfer && !!onUpdate;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <p className="text-sm text-slate-400">{subtitle}</p>
+          <DialogTitle>{title ?? (isEdit ? "Editar transferência" : "Transferência entre contas")}</DialogTitle>
+          <p className="text-sm text-slate-400">
+            {subtitle ??
+              (isEdit
+                ? "Os saldos das contas envolvidas são ajustados automaticamente"
+                : "Mova saldo entre suas contas instantaneamente")}
+          </p>
         </DialogHeader>
         <TransferForm
-          key={open ? "open" : "closed"}
+          key={open ? `open-${transfer?.id ?? "new"}` : "closed"}
           accounts={selectable}
           defaults={defaults}
+          transfer={transfer}
           onCreate={onCreate}
+          onUpdate={onUpdate}
           onClose={() => onOpenChange(false)}
         />
       </DialogContent>
