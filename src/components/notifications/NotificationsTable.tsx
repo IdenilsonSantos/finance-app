@@ -11,6 +11,9 @@ import {
   CalendarCheck,
   ArrowLeftRight,
   CheckCheck,
+  Gauge,
+  Receipt,
+  CreditCard,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,6 +27,9 @@ const TYPE_ICONS: Record<string, LucideIcon> = {
   goalDeadline: Clock,
   scheduledReminder: CalendarCheck,
   transferCreated: ArrowLeftRight,
+  budgetAlert: Gauge,
+  billReminder: Receipt,
+  invoiceReminder: CreditCard,
 };
 
 const TYPE_ICON_COLORS: Record<string, string> = {
@@ -31,6 +37,9 @@ const TYPE_ICON_COLORS: Record<string, string> = {
   goalDeadline: "bg-amber-100 text-amber-600",
   scheduledReminder: "bg-blue-100 text-blue-600",
   transferCreated: "bg-violet-100 text-violet-600",
+  budgetAlert: "bg-red-100 text-red-600",
+  billReminder: "bg-orange-100 text-orange-600",
+  invoiceReminder: "bg-rose-100 text-rose-600",
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -38,6 +47,9 @@ const TYPE_LABELS: Record<string, string> = {
   goalDeadline: "Prazo de meta",
   scheduledReminder: "Agendamento",
   transferCreated: "Transferência",
+  budgetAlert: "Orçamento",
+  billReminder: "Conta a pagar/receber",
+  invoiceReminder: "Fatura do cartão",
 };
 
 interface NotificationsTableProps {
