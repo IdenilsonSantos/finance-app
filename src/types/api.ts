@@ -215,6 +215,11 @@ export interface DashboardFinancialInsights {
   monthExpenses: number;
   monthIncome: number;
   monthSavings: number;
+  /** A receber até o fim do mês (inclui atrasadas). */
+  pendingIncome: number;
+  /** A pagar até o fim do mês (inclui atrasadas). */
+  pendingExpenses: number;
+  overdueCount: number;
 }
 
 export interface DashboardCashFlowItem {
@@ -264,6 +269,7 @@ export interface DashboardTransaction {
   beneficiary: string | null;
   paymentMethod: string | null;
   date: string;
+  status: TransactionStatus;
   bankAccountId: string;
   bankAccountName: string | null;
   bankAccountColor: string | null;

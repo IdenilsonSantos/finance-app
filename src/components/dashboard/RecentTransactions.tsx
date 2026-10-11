@@ -74,6 +74,7 @@ export function RecentTransactions({ transactions, scheduled }: RecentTransactio
       beneficiary: tx.beneficiary,
       paymentMethod: tx.paymentMethod,
       date: tx.date,
+      status: tx.status,
       bankAccountName: tx.bankAccountName,
       bankAccountColor: tx.bankAccountColor,
     })),
