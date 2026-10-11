@@ -66,6 +66,20 @@ export interface TransactionsSummaryResponse {
   activeDates: string[];
 }
 
+// Transfers
+
+export interface TransferResponse {
+  id: string;
+  workspaceId: string;
+  fromAccountId: string;
+  toAccountId: string;
+  amount: number;
+  description: string | null;
+  date: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface BankAccountResponse {
   id: string;
   workspaceId: string;

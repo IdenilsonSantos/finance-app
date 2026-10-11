@@ -41,6 +41,8 @@ export function useWallets() {
     queryClient.invalidateQueries({ queryKey: ["bank-accounts"] });
     queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    queryClient.invalidateQueries({ queryKey: ["transactions-stats"] });
+    queryClient.invalidateQueries({ queryKey: ["transfers"] });
   }
 
   async function createWallet(payload: CreateWalletPayload) {
