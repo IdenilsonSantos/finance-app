@@ -57,6 +57,15 @@ export interface TransactionResponse {
   updatedAt: string;
 }
 
+export interface TransactionsSummaryResponse {
+  income: number;
+  expense: number;
+  balance: number;
+  incomeCount: number;
+  expenseCount: number;
+  activeDates: string[];
+}
+
 export interface BankAccountResponse {
   id: string;
   workspaceId: string;

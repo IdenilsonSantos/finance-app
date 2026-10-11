@@ -3,7 +3,12 @@
 import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { api } from "@/lib/api/client";
-import { TransactionResponse, BankAccountResponse, PaginatedResponse } from "@/types/api";
+import {
+  TransactionResponse,
+  TransactionsSummaryResponse,
+  BankAccountResponse,
+  PaginatedResponse,
+} from "@/types/api";
 
 export interface CreateTransactionPayload {
   bankAccountId: string;
@@ -71,21 +76,21 @@ export function useTransactions(filters: TransactionFilters = {}) {
     placeholderData: keepPreviousData,
   });
 
-  // Stats query — only date range, no type/category/search filter, limit=500
-  // Used for income/expense totals and active dates on MonthDateStrip.
-  // Uses statsStartDate/statsEndDate (the full month) when provided, so
-  // narrowing the table to a single day doesn't skew the "(Mês)" cards.
+  // Period summary (income/expense totals and active dates on MonthDateStrip),
+  // aggregated by the API. Uses statsStartDate/statsEndDate (the full month)
+  // when provided, so narrowing the table to a single day doesn't skew the
+  // "(Mês)" cards. Balance adjustments are excluded server-side.
   const statsStartDate = filters.statsStartDate ?? filters.startDate;
   const statsEndDate = filters.statsEndDate ?? filters.endDate;
   const statsParams = buildParams({
     startDate: statsStartDate,
     endDate: statsEndDate,
-    limit: 500,
+    accountId: filters.accountId,
   });
-  const statsQuery = useQuery<PaginatedResponse<TransactionResponse>>({
+  const statsQuery = useQuery<TransactionsSummaryResponse>({
     queryKey: ["transactions-stats", workspaceId, statsParams],
     queryFn: () =>
-      api.get<PaginatedResponse<TransactionResponse>>(`/transactions?${statsParams}`),
+      api.get<TransactionsSummaryResponse>(`/transactions/summary?${statsParams}`),
     enabled: !!workspaceId && !!(statsStartDate || statsEndDate),
   });
 
@@ -117,22 +122,18 @@ export function useTransactions(filters: TransactionFilters = {}) {
     invalidate();
   }
 
-  const statsTransactions = statsQuery.data?.data ?? [];
-  const monthIncome = statsTransactions
-    .filter((t) => t.type === "income")
-    .reduce((s, t) => s + t.amount, 0);
-  const monthExpense = statsTransactions
-    .filter((t) => t.type === "expense")
-    .reduce((s, t) => s + t.amount, 0);
+  const summary = statsQuery.data;
 
   return {
     transactions: txQuery.data?.data ?? [],
     total: txQuery.data?.total ?? 0,
     page: txQuery.data?.page ?? 1,
     totalPages: txQuery.data?.totalPages ?? 1,
-    statsTransactions,
-    monthIncome,
-    monthExpense,
+    monthIncome: summary?.income ?? 0,
+    monthExpense: summary?.expense ?? 0,
+    incomeCount: summary?.incomeCount ?? 0,
+    expenseCount: summary?.expenseCount ?? 0,
+    activeDates: summary?.activeDates ?? [],
     bankAccounts: accountsQuery.data ?? [],
     loading: txQuery.isLoading || accountsQuery.isLoading,
     error: txQuery.error

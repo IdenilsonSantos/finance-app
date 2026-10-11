@@ -145,9 +145,11 @@ export default function TransactionsPage() {
     transactions,
     total,
     totalPages,
-    statsTransactions,
     monthIncome,
     monthExpense,
+    incomeCount,
+    expenseCount,
+    activeDates,
     bankAccounts,
     loading,
     error,
@@ -176,11 +178,6 @@ export default function TransactionsPage() {
   const animatedBalance = useCountUp(totalBalance, { duration: 900, enabled: !loading });
   const animatedIncome = useCountUp(monthIncome, { duration: 750, enabled: !loading });
   const animatedExpense = useCountUp(monthExpense, { duration: 750, enabled: !loading });
-
-  const activeDates = useMemo(
-    () => statsTransactions.map((tx) => tx.date),
-    [statsTransactions],
-  );
 
   const filteredItems = useMemo(
     () =>
@@ -335,7 +332,7 @@ export default function TransactionsPage() {
               </div>
             </div>
             <div className="mt-4 flex items-center gap-1.5 text-xs">
-              <span className="text-slate-400">{statsTransactions.filter((t) => t.type === "income").length} receitas no mês</span>
+              <span className="text-slate-400">{incomeCount} {incomeCount === 1 ? "receita" : "receitas"} no mês</span>
             </div>
           </div>
 
@@ -352,7 +349,7 @@ export default function TransactionsPage() {
               </div>
             </div>
             <div className="mt-4 flex items-center gap-1.5 text-xs">
-              <span className="text-slate-400">{statsTransactions.filter((t) => t.type === "expense").length} despesas no mês</span>
+              <span className="text-slate-400">{expenseCount} {expenseCount === 1 ? "despesa" : "despesas"} no mês</span>
             </div>
           </div>
         </div>
