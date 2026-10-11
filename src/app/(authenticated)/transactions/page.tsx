@@ -15,6 +15,8 @@ import {
   Upload,
   Trash2,
   AlertTriangle,
+  Download,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Header } from "@/components/Header";
@@ -129,6 +131,18 @@ export default function TransactionsPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  async function handleExport() {
+    setExporting(true);
+    try {
+      await exportCsv();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Erro ao exportar");
+    } finally {
+      setExporting(false);
+    }
+  }
   const [editingTransfer, setEditingTransfer] = useState<TransferResponse | null>(null);
   const [scheduledDialogOpen, setScheduledDialogOpen] = useState(false);
   const [editingScheduled, setEditingScheduled] = useState<ScheduledTransactionResponse | null>(null);
@@ -169,6 +183,7 @@ export default function TransactionsPage() {
     updateTransaction,
     deleteTransaction,
     convertToTransfer,
+    exportCsv,
     refetch,
   } = useTransactions({
     // Pendências: todas, de qualquer mês, por ordem de vencimento.
@@ -313,6 +328,18 @@ export default function TransactionsPage() {
         subtitle="Gerencie suas receitas e despesas"
         actions={
           <div className="flex items-center gap-2">
+            {typeFilter !== "scheduled" && typeFilter !== "transfer" && (
+              <Button
+                variant="outline"
+                onClick={handleExport}
+                disabled={exporting}
+                title="Exportar as transações filtradas para planilha (CSV)"
+                className="font-semibold rounded-2xl gap-2 border-slate-200 text-slate-700 hover:bg-slate-50"
+              >
+                {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                <span className="hidden sm:inline">Exportar</span>
+              </Button>
+            )}
             {typeFilter !== "scheduled" && typeFilter !== "transfer" && (
               <Button
                 variant="outline"
