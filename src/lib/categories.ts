@@ -41,3 +41,16 @@ export const CATEGORY_STYLES: Record<string, CategoryStyle> = {
 export function getCategoryStyle(category: string): CategoryStyle {
   return CATEGORY_STYLES[category] ?? CATEGORY_STYLES.others;
 }
+
+/** Categorias que fazem sentido para orçamento (despesas). */
+export const EXPENSE_CATEGORIES = [
+  "food",
+  "transport",
+  "health",
+  "education",
+  "entertainment",
+  "clothing",
+  "housing",
+  "utilities",
+  "others",
+] as const;

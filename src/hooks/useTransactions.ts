@@ -105,6 +105,7 @@ export function useTransactions(filters: TransactionFilters = {}) {
     queryClient.invalidateQueries({ queryKey: ["transactions-stats"] });
     queryClient.invalidateQueries({ queryKey: ["bank-accounts"] });
     queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    queryClient.invalidateQueries({ queryKey: ["budgets"] });
   }
 
   async function createTransaction(data: CreateTransactionPayload) {

@@ -79,6 +79,23 @@ export interface TransferResponse {
   updatedAt: string;
 }
 
+// Budgets
+
+/** Categoria do orçamento global do mês (teto de todas as despesas). */
+export const GLOBAL_BUDGET_CATEGORY = "all";
+
+export interface BudgetSummaryItem {
+  id: string;
+  category: string;
+  amount: number;
+  month: string;
+  spentAmount: number;
+  remaining: number;
+  percentUsed: number;
+}
+
+export type BankAccountType = "checking" | "savings" | "investment" | "cash" | "credit_card";
+
 export interface BankAccountResponse {
   id: string;
   workspaceId: string;

@@ -81,6 +81,7 @@ export function useScheduledTransactions(filters: ScheduledTransactionFilters = 
     queryClient.invalidateQueries({ queryKey: ["transactions"] });
     queryClient.invalidateQueries({ queryKey: ["transactions-stats"] });
     queryClient.invalidateQueries({ queryKey: ["bank-accounts"] });
+    queryClient.invalidateQueries({ queryKey: ["budgets"] });
   }
 
   return {
