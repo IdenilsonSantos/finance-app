@@ -32,7 +32,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { CATEGORY_STYLES } from "@/lib/categories";
+import { categorySelectOptions } from "@/lib/categories";
+import { useCategories } from "@/hooks/useCategories";
 import { ScheduledTransactionResponse, BankAccountResponse } from "@/types/api";
 import {
   CreateScheduledTransactionPayload,
@@ -47,10 +48,6 @@ const FREQUENCIES = [
   { value: "monthly", label: "Mensal" },
   { value: "yearly",  label: "Anual" },
 ] as const;
-
-const CATEGORIES = Object.entries(CATEGORY_STYLES)
-  .filter(([key]) => key !== "outros")
-  .map(([key, style]) => ({ key, label: style.label, color: style.color, Icon: style.icon }));
 
 const schema = z.object({
   bankAccountId: z.string().min(1, "Selecione uma conta"),
@@ -118,6 +115,8 @@ export function ScheduledTransactionFormDialog({
 
   const isSubmitting = form.formState.isSubmitting;
   const currentType = form.watch("type");
+  // Recarrega as opções quando as categorias personalizadas chegam.
+  useCategories();
   const currentFrequency = form.watch("frequency");
 
   async function onSubmit(values: FormValues) {
@@ -356,7 +355,7 @@ export function ScheduledTransactionFormDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {CATEGORIES.map(({ key, label, color, Icon }) => (
+                      {categorySelectOptions(currentType, field.value).map(({ key, label, color, icon: Icon }) => (
                         <SelectItem key={key} value={key}>
                           <span className="flex items-center gap-2">
                             <Icon className="w-3.5 h-3.5 shrink-0" style={{ color }} />

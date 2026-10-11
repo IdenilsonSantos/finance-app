@@ -12,8 +12,26 @@ import {
   PartyPopper,
   FileText,
   Scale,
+  Tag,
+  ShoppingBag,
+  ShoppingCart,
+  Heart,
+  Gift,
+  PawPrint,
+  Plane,
+  Coffee,
+  Gamepad2,
+  BookOpen,
+  PiggyBank,
+  Smartphone,
+  Dumbbell,
+  Baby,
+  Wrench,
+  Music,
+  Receipt,
   LucideIcon,
 } from "lucide-react";
+import type { CategoryResponse } from "@/types/api";
 
 export interface CategoryStyle {
   color: string;
@@ -38,8 +56,51 @@ export const CATEGORY_STYLES: Record<string, CategoryStyle> = {
   adjustment:    { color: "#64748B", label: "Ajuste",         icon: Scale },
 };
 
+/** Ícones disponíveis para categorias personalizadas (nomes aceitos pela API). */
+export const CUSTOM_CATEGORY_ICONS: Record<string, LucideIcon> = {
+  tag: Tag,
+  "shopping-bag": ShoppingBag,
+  "shopping-cart": ShoppingCart,
+  home: Home,
+  car: Car,
+  heart: Heart,
+  gift: Gift,
+  "paw-print": PawPrint,
+  plane: Plane,
+  coffee: Coffee,
+  gamepad: Gamepad2,
+  book: BookOpen,
+  briefcase: Briefcase,
+  "piggy-bank": PiggyBank,
+  smartphone: Smartphone,
+  dumbbell: Dumbbell,
+  baby: Baby,
+  wrench: Wrench,
+  music: Music,
+  receipt: Receipt,
+};
+
+/**
+ * Categorias personalizadas do workspace atual, registradas pelo hook
+ * useCategories. Assim getCategoryStyle resolve nome/cor/ícone delas em
+ * qualquer componente, sem precisar receber a lista por props.
+ */
+const customRegistry = new Map<string, CategoryStyle & { type: "income" | "expense" }>();
+
+export function registerCustomCategories(categories: CategoryResponse[]) {
+  customRegistry.clear();
+  for (const c of categories) {
+    customRegistry.set(c.id, {
+      label: c.name,
+      color: c.color,
+      icon: CUSTOM_CATEGORY_ICONS[c.icon] ?? Tag,
+      type: c.type,
+    });
+  }
+}
+
 export function getCategoryStyle(category: string): CategoryStyle {
-  return CATEGORY_STYLES[category] ?? CATEGORY_STYLES.others;
+  return customRegistry.get(category) ?? CATEGORY_STYLES[category] ?? CATEGORY_STYLES.others;
 }
 
 /** Categorias que fazem sentido para orçamento (despesas). */
@@ -54,3 +115,47 @@ export const EXPENSE_CATEGORIES = [
   "utilities",
   "others",
 ] as const;
+
+/** Categorias padrão de receita. */
+export const INCOME_CATEGORIES = ["salary", "freelance", "investment", "others"] as const;
+
+export interface CategoryOption extends CategoryStyle {
+  key: string;
+  type: "income" | "expense";
+  custom: boolean;
+}
+
+/**
+ * Categorias que o usuário pode escolher (padrão + personalizadas), por tipo.
+ * "Ajuste" fica de fora: é criado pelo sistema, não escolhido à mão.
+ */
+export function categoryOptions(type?: "income" | "expense"): CategoryOption[] {
+  const builtin = (t: "income" | "expense", keys: readonly string[]) =>
+    keys.map((key) => ({ key, type: t, custom: false, ...CATEGORY_STYLES[key] }));
+  const custom = (t: "income" | "expense") =>
+    [...customRegistry.entries()]
+      .filter(([, c]) => c.type === t)
+      .map(([key, c]) => ({ key, custom: true, ...c }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+
+  const all = [
+    ...builtin("expense", EXPENSE_CATEGORIES),
+    ...custom("expense"),
+    ...builtin("income", INCOME_CATEGORIES),
+    ...custom("income"),
+  ];
+  if (type) return all.filter((o) => o.type === type);
+  // Sem tipo (ex.: filtro): "Outros" aparece uma vez só.
+  return all.filter((o, i) => all.findIndex((x) => x.key === o.key) === i);
+}
+
+/**
+ * Opções de um seletor de categoria para o tipo informado. Mantém a categoria
+ * já escolhida mesmo que ela não seja do tipo (lançamentos antigos), para o
+ * seletor não aparecer vazio ao editar.
+ */
+export function categorySelectOptions(type: "income" | "expense", current?: string): CategoryOption[] {
+  const options = categoryOptions(type);
+  if (!current || options.some((o) => o.key === current)) return options;
+  return [...options, { key: current, type, custom: false, ...getCategoryStyle(current) }];
+}

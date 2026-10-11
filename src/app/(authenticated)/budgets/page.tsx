@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useCategories } from "@/hooks/useCategories";
 import { format, addMonths, getDaysInMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -63,6 +64,8 @@ function RemainingLabel({ budget }: { budget: BudgetSummaryItem }) {
 }
 
 export default function BudgetsPage() {
+  // Categorias personalizadas: carrega e re-renderiza a página quando chegam.
+  useCategories();
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);

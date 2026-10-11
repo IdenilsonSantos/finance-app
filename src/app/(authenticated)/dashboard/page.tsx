@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useCategories } from "@/hooks/useCategories";
 import { useSession } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Header } from "@/components/Header";
@@ -60,6 +61,8 @@ function getGreeting(): string {
 }
 
 export default function DashboardPage() {
+  // Categorias personalizadas: carrega e re-renderiza a página quando chegam.
+  useCategories();
   const { data: session } = useSession();
   const searchParams = useSearchParams();
   const router = useRouter();
