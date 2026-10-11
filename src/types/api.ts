@@ -96,6 +96,40 @@ export interface TransferResponse {
   updatedAt: string;
 }
 
+// Reports
+
+export interface ReportTotals {
+  income: number;
+  expense: number;
+  balance: number;
+  /** Fração do que entrou que sobrou (0.25 = 25%); null sem receitas. */
+  savingsRate: number | null;
+  incomeCount: number;
+  expenseCount: number;
+}
+
+export interface ReportCategory {
+  category: string;
+  type: "income" | "expense";
+  total: number;
+  count: number;
+  /** Participação no total do tipo (0..1). */
+  share: number;
+  previousTotal: number;
+  /** Variação relativa ao período anterior; null quando lá era zero. */
+  change: number | null;
+  months: { month: string; total: number }[];
+}
+
+export interface ReportResponse {
+  period: { startDate: string; endDate: string };
+  previousPeriod: { startDate: string; endDate: string };
+  totals: ReportTotals;
+  previousTotals: ReportTotals;
+  months: { month: string; income: number; expense: number; balance: number }[];
+  categories: ReportCategory[];
+}
+
 // Categories
 
 /** Categoria personalizada do workspace (as padrão ficam em lib/categories). */
