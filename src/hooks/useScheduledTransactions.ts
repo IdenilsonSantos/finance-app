@@ -24,7 +24,8 @@ export interface UpdateScheduledTransactionPayload {
   category?: string;
   frequency?: "once" | "daily" | "weekly" | "monthly" | "yearly";
   nextDate?: string;
-  endDate?: string;
+  /** null remove a data de término. */
+  endDate?: string | null;
 }
 
 export interface ScheduledTransactionFilters {
@@ -78,6 +79,7 @@ export function useScheduledTransactions(filters: ScheduledTransactionFilters = 
     await api.post(`/scheduled-transactions/${id}/execute`);
     invalidate();
     queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    queryClient.invalidateQueries({ queryKey: ["transactions-stats"] });
     queryClient.invalidateQueries({ queryKey: ["bank-accounts"] });
   }
 

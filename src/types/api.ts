@@ -21,7 +21,6 @@ export interface ScheduledTransactionResponse {
   frequency: "once" | "daily" | "weekly" | "monthly" | "yearly";
   nextDate: string | null;
   endDate: string | null;
-  lastExecutedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }

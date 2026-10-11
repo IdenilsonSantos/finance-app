@@ -132,7 +132,7 @@ export function ScheduledTransactionFormDialog({
           category: values.category,
           frequency: values.frequency,
           nextDate: values.nextDate,
-          endDate: values.endDate || undefined,
+          endDate: values.endDate || null,
         });
         toast.success("Agendamento atualizado");
       } else {
