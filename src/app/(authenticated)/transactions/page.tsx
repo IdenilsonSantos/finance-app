@@ -14,6 +14,7 @@ import {
   ListFilter,
   Upload,
   Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Header } from "@/components/Header";
@@ -119,6 +120,7 @@ export default function TransactionsPage() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [accountFilter, setAccountFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "paid" | "pending">("all");
   const [page, setPage] = useState(1);
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -154,6 +156,9 @@ export default function TransactionsPage() {
     monthExpense,
     incomeCount,
     expenseCount,
+    pendingIncome,
+    pendingExpense,
+    overdueCount,
     activeDates,
     bankAccounts,
     loading,
@@ -171,6 +176,7 @@ export default function TransactionsPage() {
     category: categoryFilter !== "all" ? categoryFilter : undefined,
     accountId: accountFilter !== "all" ? accountFilter : undefined,
     search: search || undefined,
+    status: statusFilter !== "all" ? statusFilter : undefined,
     page,
   });
 
@@ -194,7 +200,18 @@ export default function TransactionsPage() {
   const { scheduled, createScheduledTransaction, updateScheduledTransaction, deleteScheduledTransaction, executeScheduledTransaction } =
     useScheduledTransactions();
 
-  const hasActiveFilters = categoryFilter !== "all" || accountFilter !== "all" || !!search;
+  const hasActiveFilters =
+    categoryFilter !== "all" || accountFilter !== "all" || statusFilter !== "all" || !!search;
+
+  async function handleMarkPaid(id: string) {
+    const tx = transactions.find((t) => t.id === id);
+    try {
+      await updateTransaction(id, { status: "paid" });
+      toast.success(tx?.type === "income" ? "Marcada como recebida" : "Marcada como paga");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Erro ao atualizar transação");
+    }
+  }
 
   const totalBalance = bankAccounts.reduce((s, a) => s + a.balance, 0);
   const animatedBalance = useCountUp(totalBalance, { duration: 900, enabled: !loading });
@@ -213,6 +230,7 @@ export default function TransactionsPage() {
           description: tx.description,
           beneficiary: tx.beneficiary,
           paymentMethod: tx.paymentMethod,
+          status: tx.status,
           installmentNumber: tx.installmentNumber,
           installmentTotal: tx.installmentTotal,
           date: tx.date,
@@ -362,7 +380,8 @@ export default function TransactionsPage() {
               </div>
             </div>
             <div className="mt-4 flex items-center gap-1.5 text-xs">
-              <span className="text-slate-400">{incomeCount} {incomeCount === 1 ? "receita" : "receitas"} no mês</span>
+              <span className="text-slate-400">{incomeCount} {incomeCount === 1 ? "receita" : "receitas"} no mês
+                {pendingIncome > 0 && <> · <span className="text-amber-500 font-semibold">{formatCurrency(pendingIncome)} a receber</span></>}</span>
             </div>
           </div>
 
@@ -379,10 +398,28 @@ export default function TransactionsPage() {
               </div>
             </div>
             <div className="mt-4 flex items-center gap-1.5 text-xs">
-              <span className="text-slate-400">{expenseCount} {expenseCount === 1 ? "despesa" : "despesas"} no mês</span>
+              <span className="text-slate-400">{expenseCount} {expenseCount === 1 ? "despesa" : "despesas"} no mês
+                {pendingExpense > 0 && <> · <span className="text-amber-500 font-semibold">{formatCurrency(pendingExpense)} a pagar</span></>}</span>
             </div>
           </div>
         </div>
+
+        {overdueCount > 0 && statusFilter !== "pending" && (
+          <div className="flex items-center justify-between gap-3 rounded-2xl bg-red-50 border border-red-100 px-4 py-3">
+            <div className="flex items-center gap-2 text-sm text-red-700">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>
+                {overdueCount} {overdueCount === 1 ? "conta atrasada" : "contas atrasadas"} neste mês
+              </span>
+            </div>
+            <button
+              onClick={() => { setStatusFilter("pending"); setTypeFilter("all"); setSelectedDay(null); resetPage(); }}
+              className="text-xs font-semibold text-red-700 hover:underline whitespace-nowrap"
+            >
+              Ver pendentes
+            </button>
+          </div>
+        )}
 
         {loading ? (
           <TransactionSkeleton />
@@ -468,8 +505,25 @@ export default function TransactionsPage() {
                       </Select>
                     </div>
 
+                    <div className="space-y-1.5">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Situação</p>
+                      <Select
+                        value={statusFilter}
+                        onValueChange={(v) => { setStatusFilter(v as "all" | "paid" | "pending"); resetPage(); }}
+                      >
+                        <SelectTrigger className="h-10 rounded-xl text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todas</SelectItem>
+                          <SelectItem value="paid">Efetivadas</SelectItem>
+                          <SelectItem value="pending">Pendentes (a pagar/receber)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
                     <button
-                      onClick={() => { setCategoryFilter("all"); setAccountFilter("all"); setSearch(""); resetPage(); }}
+                      onClick={() => { setCategoryFilter("all"); setAccountFilter("all"); setStatusFilter("all"); setSearch(""); resetPage(); }}
                       className="w-full text-sm font-semibold text-red-500 hover:text-red-600 hover:bg-red-50 rounded-xl py-2 transition-colors"
                     >
                       Limpar Filtros
@@ -546,6 +600,7 @@ export default function TransactionsPage() {
                   deletingId={deletingId}
                   onEdit={(id) => { const tx = transactions.find((t) => t.id === id); if (tx) openEdit(tx); }}
                   onDelete={handleDelete}
+                  onMarkPaid={handleMarkPaid}
                   emptyIcon={TYPE_TABS.find((t) => t.id === typeFilter)?.icon}
                   emptyMessage={
                     typeFilter === "income" ? "Nenhuma receita encontrada" :

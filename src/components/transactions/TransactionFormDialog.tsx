@@ -22,6 +22,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -71,6 +72,7 @@ const schema = z.object({
   frequency: z.enum(["once", "daily", "weekly", "monthly", "yearly"]).optional(),
   endDate: z.string().optional(),
   installments: z.string().optional(),
+  pending: z.boolean().optional(),
 });
 
 const INSTALLMENT_OPTIONS = Array.from({ length: 24 }, (_, i) => i + 1);
@@ -143,6 +145,7 @@ function TransactionForm({
           category: transaction.category,
           paymentMethod: transaction.paymentMethod ?? "",
           date: transaction.date,
+          pending: transaction.status === "pending",
         }
       : {
           bankAccountId: bankAccounts.find((a) => !a.archivedAt)?.id ?? "",
@@ -156,6 +159,7 @@ function TransactionForm({
           date: today,
           frequency: "monthly",
           installments: "1",
+          pending: false,
         },
   });
 
@@ -174,11 +178,18 @@ function TransactionForm({
   const currentType = form.watch("type");
   const currentDate = form.watch("date");
   const currentFrequency = form.watch("frequency");
-  const isScheduled = !isEdit && !!onCreateScheduled && !!currentDate && currentDate > today;
+  // Conta pendente ("a pagar/receber") não vira agendamento, mesmo com data futura:
+  // fica aguardando a confirmação do pagamento.
+  const isPending = !!form.watch("pending");
+  const isScheduled =
+    !isEdit && !isPending && !!onCreateScheduled && !!currentDate && currentDate > today;
   const isRecurring = isScheduled && currentFrequency && currentFrequency !== "once";
   const selectedAccount = allAccounts.find((a) => a.id === form.watch("bankAccountId"));
   // Parcelamento: só despesas no cartão de crédito (como nos bancos).
-  const canInstall = !isEdit && !isScheduled && currentType === "expense" && isCreditCard(selectedAccount);
+  const selectedIsCard = isCreditCard(selectedAccount);
+  const canInstall = !isEdit && !isScheduled && currentType === "expense" && selectedIsCard;
+  // Cartão não tem pendente: a compra já entra na fatura.
+  const status = !selectedIsCard && isPending ? "pending" : "paid";
   const currentAmount = parseFloat(form.watch("amount") || "0") || 0;
 
   async function onSubmit(values: FormValues) {
@@ -199,6 +210,7 @@ function TransactionForm({
           category: values.category,
           paymentMethod: values.paymentMethod || null,
           date: values.date,
+          status,
         });
         toast.success("Transação atualizada");
       } else if (shouldSchedule && onCreateScheduled) {
@@ -224,6 +236,7 @@ function TransactionForm({
           category: values.category,
           paymentMethod: values.paymentMethod || undefined,
           date: values.date,
+          status,
           ...(installments > 1 ? { installments } : {}),
         });
         toast.success(installments > 1 ? `Compra parcelada em ${installments}x` : "Transação criada");
@@ -446,6 +459,34 @@ function TransactionForm({
             </FormItem>
           )}
         />
+
+        {!selectedIsCard && (
+          <FormField
+            control={form.control}
+            name="pending"
+            render={({ field }) => (
+              <FormItem className="flex items-start gap-3 rounded-2xl border border-slate-100 px-4 py-3 space-y-0">
+                <FormControl>
+                  <Checkbox
+                    checked={!!field.value}
+                    onCheckedChange={(v) => field.onChange(v === true)}
+                    disabled={isSubmitting}
+                    className="mt-0.5"
+                  />
+                </FormControl>
+                <div className="space-y-0.5">
+                  <FormLabel className="text-sm font-semibold cursor-pointer">
+                    {currentType === "income" ? "Ainda não recebi" : "Ainda não paguei"}
+                  </FormLabel>
+                  <p className="text-[11px] text-slate-400">
+                    Fica como {currentType === "income" ? "conta a receber" : "conta a pagar"} e só entra no
+                    saldo quando você marcar como {currentType === "income" ? "recebida" : "paga"}.
+                  </p>
+                </div>
+              </FormItem>
+            )}
+          />
+        )}
 
         {canInstall && (
           <FormField
