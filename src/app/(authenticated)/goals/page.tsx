@@ -122,13 +122,13 @@ function GoalCard({ goal, onEdit, onContribute }: GoalCardProps) {
             )}
           </div>
         </div>
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+        <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
           <button
             onClick={() => onContribute(goal)}
-            disabled={isComplete}
-            className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-colors"
             style={{ backgroundColor: goal.color + "20" }}
-            title="Contribuir"
+            title="Guardar ou resgatar"
+            aria-label="Guardar ou resgatar"
           >
             <PiggyBank className="w-3.5 h-3.5" style={{ color: goal.color }} />
           </button>
@@ -195,7 +195,7 @@ function GoalCard({ goal, onEdit, onContribute }: GoalCardProps) {
 
 export default function GoalsPage() {
   const [page, setPage] = useState(1);
-  const { goals, total, totalPages, loading, error, createGoal, updateGoal, deleteGoal, contributeGoal } = useGoals({ page });
+  const { goals, total, totalPages, loading, error, createGoal, updateGoal, deleteGoal, contributeGoal, withdrawGoal } = useGoals({ page });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<GoalResponse | null>(null);
   const [contributing, setContributing] = useState<GoalResponse | null>(null);
@@ -314,6 +314,7 @@ export default function GoalsPage() {
         onOpenChange={(o) => { if (!o) setContributing(null); }}
         goal={contributing}
         onContribute={contributeGoal}
+        onWithdraw={withdrawGoal}
       />
     </div>
   );

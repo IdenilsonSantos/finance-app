@@ -1,10 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarDays, Play, Pencil, Trash2, Loader2, RepeatIcon, CheckCircle2, Clock } from "lucide-react";
+import { CalendarDays, Play, Pencil, Trash2, Loader2, RepeatIcon, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
-import { differenceInDays, parseISO, format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { differenceInDays, parseISO } from "date-fns";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getCategoryStyle } from "@/lib/categories";
@@ -98,9 +97,6 @@ export function ScheduledTransactionsView({ scheduled, bankAccounts, onEdit, onD
         const completed = isCompleted(item);
         const nextDateLabel = item.nextDate ? getNextDateLabel(item.nextDate) : null;
         const isOverdue = nextDateLabel === "vencida";
-        const lastExecutedLabel = item.lastExecutedAt
-          ? format(parseISO(item.lastExecutedAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
-          : null;
 
         return (
           <div
@@ -137,15 +133,6 @@ export function ScheduledTransactionsView({ scheduled, bankAccounts, onEdit, onD
                   <RepeatIcon className="w-3 h-3" />
                   {FREQUENCY_LABELS[item.frequency] ?? item.frequency}
                 </span>
-                {lastExecutedLabel && (
-                  <>
-                    <span className="text-slate-200">·</span>
-                    <span className="inline-flex items-center gap-1 text-xs text-slate-400">
-                      <Clock className="w-3 h-3" />
-                      Executada em {lastExecutedLabel}
-                    </span>
-                  </>
-                )}
               </div>
             </div>
 

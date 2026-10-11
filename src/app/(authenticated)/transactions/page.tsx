@@ -31,7 +31,11 @@ import { TransactionFormDialog } from "@/components/transactions/TransactionForm
 import { ScheduledTransactionFormDialog } from "@/components/transactions/ScheduledTransactionFormDialog";
 import { ScheduledTransactionsView } from "@/components/transactions/ScheduledTransactionsView";
 import { ImportStatementDialog } from "@/components/transactions/ImportStatementDialog";
+import { TransfersList } from "@/components/transactions/TransfersList";
+import { TransferFormDialog } from "@/components/wallets/TransferFormDialog";
+import { useWallets } from "@/hooks/useWallets";
 import { useTransactions } from "@/hooks/useTransactions";
+import { useTransfers } from "@/hooks/useTransfers";
 import { useScheduledTransactions } from "@/hooks/useScheduledTransactions";
 import { formatCurrency } from "@/lib/format";
 import { TransactionResponse, ScheduledTransactionResponse } from "@/types/api";
@@ -121,6 +125,7 @@ export default function TransactionsPage() {
   const [editing, setEditing] = useState<TransactionResponse | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
   const [scheduledDialogOpen, setScheduledDialogOpen] = useState(false);
   const [editingScheduled, setEditingScheduled] = useState<ScheduledTransactionResponse | null>(null);
 
@@ -145,9 +150,11 @@ export default function TransactionsPage() {
     transactions,
     total,
     totalPages,
-    statsTransactions,
     monthIncome,
     monthExpense,
+    incomeCount,
+    expenseCount,
+    activeDates,
     bankAccounts,
     loading,
     error,
@@ -167,6 +174,23 @@ export default function TransactionsPage() {
     page,
   });
 
+  const isTransferTab = typeFilter === "transfer";
+  const {
+    transfers,
+    total: transfersTotal,
+    totalPages: transfersTotalPages,
+    loading: transfersLoading,
+    deleteTransfer,
+  } = useTransfers({
+    startDate,
+    endDate,
+    accountId: accountFilter !== "all" ? accountFilter : undefined,
+    page,
+    enabled: isTransferTab,
+  });
+
+  const { createTransfer } = useWallets();
+
   const { scheduled, createScheduledTransaction, updateScheduledTransaction, deleteScheduledTransaction, executeScheduledTransaction } =
     useScheduledTransactions();
 
@@ -176,11 +200,6 @@ export default function TransactionsPage() {
   const animatedBalance = useCountUp(totalBalance, { duration: 900, enabled: !loading });
   const animatedIncome = useCountUp(monthIncome, { duration: 750, enabled: !loading });
   const animatedExpense = useCountUp(monthExpense, { duration: 750, enabled: !loading });
-
-  const activeDates = useMemo(
-    () => statsTransactions.map((tx) => tx.date),
-    [statsTransactions],
-  );
 
   const filteredItems = useMemo(
     () =>
@@ -194,6 +213,8 @@ export default function TransactionsPage() {
           description: tx.description,
           beneficiary: tx.beneficiary,
           paymentMethod: tx.paymentMethod,
+          installmentNumber: tx.installmentNumber,
+          installmentTotal: tx.installmentTotal,
           date: tx.date,
           bankAccountName: account?.name ?? null,
           bankAccountColor: account?.color ?? null,
@@ -268,7 +289,7 @@ export default function TransactionsPage() {
         subtitle="Gerencie suas receitas e despesas"
         actions={
           <div className="flex items-center gap-2">
-            {typeFilter !== "scheduled" && (
+            {typeFilter !== "scheduled" && typeFilter !== "transfer" && (
               <Button
                 variant="outline"
                 onClick={() => setImportOpen(true)}
@@ -280,7 +301,9 @@ export default function TransactionsPage() {
             )}
             <Button
               onClick={() => {
-                if (typeFilter === "scheduled") {
+                if (typeFilter === "transfer") {
+                  setTransferOpen(true);
+                } else if (typeFilter === "scheduled") {
                   setEditingScheduled(null);
                   setScheduledDialogOpen(true);
                 } else {
@@ -291,7 +314,11 @@ export default function TransactionsPage() {
               className="bg-[#1E1E2D] text-white hover:bg-slate-700 font-semibold rounded-2xl gap-2"
             >
               <Plus className="w-4 h-4" />
-              {typeFilter === "scheduled" ? "Novo agendamento" : "Nova transação"}
+              {typeFilter === "scheduled"
+                ? "Novo agendamento"
+                : typeFilter === "transfer"
+                  ? "Nova transferência"
+                  : "Nova transação"}
             </Button>
           </div>
         }
@@ -335,7 +362,7 @@ export default function TransactionsPage() {
               </div>
             </div>
             <div className="mt-4 flex items-center gap-1.5 text-xs">
-              <span className="text-slate-400">{statsTransactions.filter((t) => t.type === "income").length} receitas no mês</span>
+              <span className="text-slate-400">{incomeCount} {incomeCount === 1 ? "receita" : "receitas"} no mês</span>
             </div>
           </div>
 
@@ -352,7 +379,7 @@ export default function TransactionsPage() {
               </div>
             </div>
             <div className="mt-4 flex items-center gap-1.5 text-xs">
-              <span className="text-slate-400">{statsTransactions.filter((t) => t.type === "expense").length} despesas no mês</span>
+              <span className="text-slate-400">{expenseCount} {expenseCount === 1 ? "despesa" : "despesas"} no mês</span>
             </div>
           </div>
         </div>
@@ -488,7 +515,23 @@ export default function TransactionsPage() {
               />
             </div>
 
-            {typeFilter === "scheduled" ? (
+            {isTransferTab ? (
+              <>
+                <TransfersList
+                  transfers={transfers}
+                  bankAccounts={bankAccounts}
+                  loading={transfersLoading}
+                  onDelete={deleteTransfer}
+                />
+                <Pagination
+                  page={page}
+                  totalPages={transfersTotalPages}
+                  total={transfersTotal}
+                  limit={20}
+                  onPageChange={(p) => setPage(p)}
+                />
+              </>
+            ) : typeFilter === "scheduled" ? (
               <ScheduledTransactionsView
                 scheduled={scheduled}
                 bankAccounts={bankAccounts}
@@ -507,13 +550,11 @@ export default function TransactionsPage() {
                   emptyMessage={
                     typeFilter === "income" ? "Nenhuma receita encontrada" :
                     typeFilter === "expense" ? "Nenhuma despesa encontrada" :
-                    typeFilter === "transfer" ? "Nenhuma transferência encontrada" :
                     "Nenhuma transação encontrada"
                   }
                   emptySubtitle={
                     typeFilter === "income" ? "Tente ajustar os filtros ou crie uma nova receita" :
                     typeFilter === "expense" ? "Tente ajustar os filtros ou crie uma nova despesa" :
-                    typeFilter === "transfer" ? "Tente ajustar os filtros ou registre uma transferência" :
                     "Tente ajustar os filtros ou crie uma nova transação"
                   }
                   selected={selected}
@@ -560,6 +601,13 @@ export default function TransactionsPage() {
         }}
         onUpdate={updateScheduledTransaction}
         onDelete={deleteScheduledTransaction}
+      />
+
+      <TransferFormDialog
+        open={transferOpen}
+        onOpenChange={setTransferOpen}
+        accounts={bankAccounts}
+        onCreate={createTransfer}
       />
 
       <ImportStatementDialog

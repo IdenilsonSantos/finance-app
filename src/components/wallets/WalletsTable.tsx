@@ -2,43 +2,15 @@
 
 import { useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import {
-  Building2,
-  PiggyBank,
-  Landmark,
-  CreditCard,
-  Pencil,
-  Trash2,
-  Wallet,
-  LucideIcon,
-} from "lucide-react";
+import { Archive, ArchiveRestore, Pencil, Receipt, Trash2, Wallet } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatCurrency } from "@/lib/format";
 import { BankAccountResponse } from "@/types/api";
 import { cn } from "@/lib/utils";
-
-const TYPE_ICONS: Record<string, LucideIcon> = {
-  checking: Landmark,
-  savings: PiggyBank,
-  investment: Building2,
-  cash: CreditCard,
-};
-
-const TYPE_LABELS: Record<string, string> = {
-  checking: "C. Corrente",
-  savings: "Poupança",
-  investment: "Investimento",
-  cash: "Dinheiro",
-};
-
-const TYPE_COLORS: Record<string, string> = {
-  checking: "#3b82f6",
-  savings: "#22c55e",
-  investment: "#a855f7",
-  cash: "#f97316",
-};
+import { getAccountTypeMeta, isCreditCard } from "@/lib/accounts";
 
 const ROW_HEIGHT = 68;
 const TABLE_HEIGHT = 480;
@@ -48,9 +20,52 @@ interface WalletsTableProps {
   deletingId: string | null;
   onEdit: (wallet: BankAccountResponse) => void;
   onDelete: (id: string) => void;
+  onInvoice?: (wallet: BankAccountResponse) => void;
+  onArchive?: (wallet: BankAccountResponse) => void;
+  onUnarchive?: (wallet: BankAccountResponse) => void;
 }
 
-export function WalletsTable({ wallets, deletingId, onEdit, onDelete }: WalletsTableProps) {
+function IconAction({
+  label,
+  onClick,
+  className,
+  disabled,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  className?: string;
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label={label}
+          disabled={disabled}
+          className={cn("w-8 h-8 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100", className)}
+          onClick={onClick}
+        >
+          {children}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+export function WalletsTable({
+  wallets,
+  deletingId,
+  onEdit,
+  onDelete,
+  onInvoice,
+  onArchive,
+  onUnarchive,
+}: WalletsTableProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
 
@@ -92,7 +107,7 @@ export function WalletsTable({ wallets, deletingId, onEdit, onDelete }: WalletsT
             <th className="h-11 px-4 text-right text-[11px] font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap w-[180px]">
               Saldo
             </th>
-            <th className="h-11 pr-4 w-[80px]" />
+            <th className="h-11 pr-4 w-[150px]" />
           </tr>
         </thead>
       </table>
@@ -112,16 +127,23 @@ export function WalletsTable({ wallets, deletingId, onEdit, onDelete }: WalletsT
             <tbody>
               {items.map((virtualRow) => {
                 const wallet = wallets[virtualRow.index];
-                const Icon = TYPE_ICONS[wallet.type] || Landmark;
-                const typeColor = TYPE_COLORS[wallet.type] ?? "#64748b";
+                const meta = getAccountTypeMeta(wallet.type);
+                const Icon = meta.icon;
+                const typeColor = meta.color;
                 const isDeleting = deletingId === wallet.id;
+                const isCard = isCreditCard(wallet);
+                const archived = !!wallet.archivedAt;
+                const used = isCard ? Math.max(0, -wallet.balance) : 0;
 
                 return (
                   <tr
                     key={wallet.id}
                     data-index={virtualRow.index}
                     ref={virtualizer.measureElement}
-                    className="group border-b border-slate-50 hover:bg-slate-50/60 transition-colors animate-[fadeSlideIn_0.25s_ease_both]"
+                    className={cn(
+                      "group border-b border-slate-50 hover:bg-slate-50/60 transition-colors animate-[fadeSlideIn_0.25s_ease_both]",
+                      archived && "opacity-60",
+                    )}
                     style={{ animationDelay: `${Math.min(virtualRow.index, 12) * 35}ms` }}
                   >
                     {/* Account */}
@@ -136,10 +158,18 @@ export function WalletsTable({ wallets, deletingId, onEdit, onDelete }: WalletsT
                         <div className="min-w-0">
                           <p className="font-semibold text-slate-800 truncate max-w-[200px]">
                             {wallet.name}
+                            {archived && (
+                              <span className="ml-2 text-[10px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
+                                Arquivada
+                              </span>
+                            )}
                           </p>
-                          <p className="text-[11px] text-slate-400 sm:hidden mt-0.5">
-                            {TYPE_LABELS[wallet.type] || wallet.type}
-                          </p>
+                          <p className="text-[11px] text-slate-400 sm:hidden mt-0.5">{meta.label}</p>
+                          {isCard && (
+                            <p className="text-[11px] text-slate-400 mt-0.5">
+                              Fecha dia {wallet.closingDay} · vence dia {wallet.dueDay}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -153,42 +183,67 @@ export function WalletsTable({ wallets, deletingId, onEdit, onDelete }: WalletsT
                           color: typeColor,
                         }}
                       >
-                        {TYPE_LABELS[wallet.type] || wallet.type}
+                        {meta.label}
                       </span>
                     </td>
 
-                    {/* Balance */}
+                    {/* Balance (cartão: valor utilizado e limite disponível) */}
                     <td className="px-4 py-4 align-middle text-right w-[180px]">
-                      <span
-                        className={cn(
-                          "font-bold tabular-nums text-sm whitespace-nowrap",
-                          wallet.balance >= 0 ? "text-slate-900" : "text-red-600",
-                        )}
-                      >
-                        {formatCurrency(wallet.balance)}
-                      </span>
+                      {isCard ? (
+                        <>
+                          <span className="font-bold tabular-nums text-sm whitespace-nowrap text-slate-900">
+                            {formatCurrency(used)}
+                          </span>
+                          <p className="text-[11px] text-slate-400 whitespace-nowrap">
+                            {wallet.creditLimit !== null
+                              ? `disponível ${formatCurrency(Math.max(0, wallet.creditLimit - used))}`
+                              : "utilizado"}
+                          </p>
+                        </>
+                      ) : (
+                        <span
+                          className={cn(
+                            "font-bold tabular-nums text-sm whitespace-nowrap",
+                            wallet.balance >= 0 ? "text-slate-900" : "text-red-600",
+                          )}
+                        >
+                          {formatCurrency(wallet.balance)}
+                        </span>
+                      )}
                     </td>
 
                     {/* Actions */}
-                    <td className="pr-4 py-4 align-middle w-[80px]">
+                    <td className="pr-4 py-4 align-middle w-[150px]">
                       <div className="flex items-center justify-end gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="w-8 h-8 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100"
-                          onClick={() => onEdit(wallet)}
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="w-8 h-8 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50"
+                        {isCard && onInvoice && !archived && (
+                          <IconAction label="Ver fatura" onClick={() => onInvoice(wallet)}>
+                            <Receipt className="w-3.5 h-3.5" />
+                          </IconAction>
+                        )}
+                        {!archived && (
+                          <IconAction label="Editar" onClick={() => onEdit(wallet)}>
+                            <Pencil className="w-3.5 h-3.5" />
+                          </IconAction>
+                        )}
+                        {archived
+                          ? onUnarchive && (
+                              <IconAction label="Desarquivar" onClick={() => onUnarchive(wallet)}>
+                                <ArchiveRestore className="w-3.5 h-3.5" />
+                              </IconAction>
+                            )
+                          : onArchive && (
+                              <IconAction label="Arquivar" onClick={() => onArchive(wallet)}>
+                                <Archive className="w-3.5 h-3.5" />
+                              </IconAction>
+                            )}
+                        <IconAction
+                          label="Excluir"
                           onClick={() => setConfirmId(wallet.id)}
                           disabled={isDeleting}
+                          className="hover:text-red-600 hover:bg-red-50"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
+                        </IconAction>
                       </div>
                     </td>
                   </tr>
@@ -204,7 +259,7 @@ export function WalletsTable({ wallets, deletingId, onEdit, onDelete }: WalletsT
         open={confirmId !== null}
         onOpenChange={(open) => { if (!open) setConfirmId(null); }}
         title="Excluir conta"
-        description="Essa ação não pode ser desfeita. A conta e todas as suas transações serão removidas permanentemente."
+        description="Essa ação não pode ser desfeita. A conta, suas transações e transferências serão removidas permanentemente. Para manter o histórico, prefira arquivar a conta."
         onConfirm={() => { if (confirmId) { onDelete(confirmId); setConfirmId(null); } }}
         loading={deletingId === confirmId}
       />

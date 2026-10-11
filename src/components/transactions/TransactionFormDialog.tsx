@@ -33,6 +33,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CATEGORY_STYLES } from "@/lib/categories";
+import { getAccountTypeMeta, isCreditCard } from "@/lib/accounts";
+import { formatCurrency } from "@/lib/format";
 import { TransactionResponse, BankAccountResponse } from "@/types/api";
 import {
   CreateTransactionPayload,
@@ -68,7 +70,10 @@ const schema = z.object({
   date: z.string().min(1, "Informe a data"),
   frequency: z.enum(["once", "daily", "weekly", "monthly", "yearly"]).optional(),
   endDate: z.string().optional(),
+  installments: z.string().optional(),
 });
+
+const INSTALLMENT_OPTIONS = Array.from({ length: 24 }, (_, i) => i + 1);
 
 const resolver = zodResolver(schema);
 
@@ -99,7 +104,7 @@ interface TransactionFormDialogProps {
   bankAccounts: BankAccountResponse[];
   onCreate: (data: CreateTransactionPayload) => Promise<void>;
   onUpdate: (id: string, data: UpdateTransactionPayload) => Promise<void>;
-  onDelete?: (id: string) => Promise<void>;
+  onDelete?: (id: string, scope?: "single" | "installments") => Promise<void>;
   onCreateScheduled?: (data: CreateScheduledTransactionPayload) => Promise<void>;
 }
 
@@ -108,7 +113,7 @@ interface TransactionFormProps {
   bankAccounts: BankAccountResponse[];
   onCreate: (data: CreateTransactionPayload) => Promise<void>;
   onUpdate: (id: string, data: UpdateTransactionPayload) => Promise<void>;
-  onDelete?: (id: string) => Promise<void>;
+  onDelete?: (id: string, scope?: "single" | "installments") => Promise<void>;
   onCreateScheduled?: (data: CreateScheduledTransactionPayload) => Promise<void>;
   onClose: () => void;
 }
@@ -140,32 +145,41 @@ function TransactionForm({
           date: transaction.date,
         }
       : {
-          bankAccountId: bankAccounts[0]?.id ?? "",
+          bankAccountId: bankAccounts.find((a) => !a.archivedAt)?.id ?? "",
           amount: "",
           type: "expense",
           description: "",
           beneficiary: "",
           category: "",
           paymentMethod: "",
-          date: new Date().toISOString().slice(0, 10),
+          // Data local: toISOString() usaria UTC e viraria "amanhã" depois das 21h.
+          date: today,
           frequency: "monthly",
+          installments: "1",
         },
   });
 
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleteScope, setDeleteScope] = useState<"single" | "installments">("single");
   const [isDeleting, setIsDeleting] = useState(false);
   const [walletDialogOpen, setWalletDialogOpen] = useState(false);
   const [extraAccounts, setExtraAccounts] = useState<BankAccountResponse[]>([]);
+  // Contas arquivadas não recebem lançamentos (exceto a já usada na edição).
   const allAccounts = [
     ...bankAccounts,
     ...extraAccounts.filter((e) => !bankAccounts.some((b) => b.id === e.id)),
-  ];
+  ].filter((a) => !a.archivedAt || a.id === transaction?.bankAccountId);
+  const isInstallment = !!transaction?.installmentGroupId && (transaction.installmentTotal ?? 0) > 1;
   const isSubmitting = form.formState.isSubmitting;
   const currentType = form.watch("type");
   const currentDate = form.watch("date");
   const currentFrequency = form.watch("frequency");
   const isScheduled = !isEdit && !!onCreateScheduled && !!currentDate && currentDate > today;
   const isRecurring = isScheduled && currentFrequency && currentFrequency !== "once";
+  const selectedAccount = allAccounts.find((a) => a.id === form.watch("bankAccountId"));
+  // Parcelamento: só despesas no cartão de crédito (como nos bancos).
+  const canInstall = !isEdit && !isScheduled && currentType === "expense" && isCreditCard(selectedAccount);
+  const currentAmount = parseFloat(form.watch("amount") || "0") || 0;
 
   async function onSubmit(values: FormValues) {
     const amount = parseFloat(values.amount);
@@ -200,6 +214,7 @@ function TransactionForm({
         });
         toast.success("Agendamento criado");
       } else {
+        const installments = canInstall ? Number(values.installments ?? "1") : 1;
         await onCreate({
           bankAccountId: values.bankAccountId,
           amount,
@@ -209,8 +224,9 @@ function TransactionForm({
           category: values.category,
           paymentMethod: values.paymentMethod || undefined,
           date: values.date,
+          ...(installments > 1 ? { installments } : {}),
         });
-        toast.success("Transação criada");
+        toast.success(installments > 1 ? `Compra parcelada em ${installments}x` : "Transação criada");
       }
       onClose();
     } catch (err: unknown) {
@@ -222,8 +238,8 @@ function TransactionForm({
     if (!transaction || !onDelete) return;
     setIsDeleting(true);
     try {
-      await onDelete(transaction.id);
-      toast.success("Transação excluída");
+      await onDelete(transaction.id, deleteScope);
+      toast.success(deleteScope === "installments" ? "Compra parcelada excluída" : "Transação excluída");
       setConfirmOpen(false);
       onClose();
     } catch (err: unknown) {
@@ -385,7 +401,11 @@ function TransactionForm({
                       <SelectValue placeholder="Selecione a conta">
                         {field.value && (
                           <span className="flex items-center gap-2">
-                            <Landmark className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+                            {(() => {
+                              const acc = allAccounts.find((a) => a.id === field.value);
+                              const Icon = acc ? getAccountTypeMeta(acc.type).icon : Landmark;
+                              return <Icon className="w-3.5 h-3.5 shrink-0 text-slate-400" />;
+                            })()}
                             {allAccounts.find((a) => a.id === field.value)?.name}
                           </span>
                         )}
@@ -393,14 +413,17 @@ function TransactionForm({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {allAccounts.map((account) => (
-                      <SelectItem key={account.id} value={account.id}>
-                        <span className="flex items-center gap-2">
-                          <Landmark className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-                          {account.name}
-                        </span>
-                      </SelectItem>
-                    ))}
+                    {allAccounts.map((account) => {
+                      const Icon = getAccountTypeMeta(account.type).icon;
+                      return (
+                        <SelectItem key={account.id} value={account.id}>
+                          <span className="flex items-center gap-2">
+                            <Icon className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+                            {account.name}
+                          </span>
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
                 <Tooltip>
@@ -423,6 +446,38 @@ function TransactionForm({
             </FormItem>
           )}
         />
+
+        {canInstall && (
+          <FormField
+            control={form.control}
+            name="installments"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Parcelamento</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value ?? "1"}>
+                  <FormControl>
+                    <SelectTrigger disabled={isSubmitting}>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {INSTALLMENT_OPTIONS.map((n) => (
+                      <SelectItem key={n} value={String(n)}>
+                        {n === 1
+                          ? "À vista"
+                          : `${n}x${currentAmount > 0 ? ` de ${formatCurrency(Math.round((currentAmount * 100) / n))}` : ""}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-slate-400">
+                  Informe o valor total. Cada parcela entra na fatura de um mês.
+                </p>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
 
         {/* Descrição */}
         <FormField
@@ -542,20 +597,49 @@ function TransactionForm({
         {/* Delete (edit only) */}
         {isEdit && onDelete && (
           <>
-            <button
-              type="button"
-              onClick={() => setConfirmOpen(true)}
-              disabled={isSubmitting}
-              className="w-full flex items-center justify-center gap-2 h-11 rounded-2xl text-sm font-semibold text-red-500 bg-red-50 hover:bg-red-100 transition-colors"
-            >
-              <Trash2 className="w-4 h-4" />
-              Excluir transação
-            </button>
+            {isInstallment && (
+              <p className="text-xs text-slate-500 text-center">
+                Parcela {transaction?.installmentNumber} de {transaction?.installmentTotal}. Alterações
+                afetam só esta parcela.
+              </p>
+            )}
+            <div className={cn("grid gap-2", isInstallment && "grid-cols-2")}>
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteScope("single");
+                  setConfirmOpen(true);
+                }}
+                disabled={isSubmitting}
+                className="w-full flex items-center justify-center gap-2 h-11 rounded-2xl text-sm font-semibold text-red-500 bg-red-50 hover:bg-red-100 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                {isInstallment ? "Excluir parcela" : "Excluir transação"}
+              </button>
+              {isInstallment && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeleteScope("installments");
+                    setConfirmOpen(true);
+                  }}
+                  disabled={isSubmitting}
+                  className="w-full flex items-center justify-center gap-2 h-11 rounded-2xl text-sm font-semibold text-red-600 bg-red-100 hover:bg-red-200 transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Excluir compra
+                </button>
+              )}
+            </div>
             <ConfirmDialog
               open={confirmOpen}
               onOpenChange={setConfirmOpen}
-              title="Excluir transação"
-              description="Essa ação não pode ser desfeita. A transação será removida permanentemente"
+              title={deleteScope === "installments" ? "Excluir compra parcelada" : "Excluir transação"}
+              description={
+                deleteScope === "installments"
+                  ? `Todas as ${transaction?.installmentTotal} parcelas serão removidas e o limite do cartão será liberado.`
+                  : "Essa ação não pode ser desfeita. A transação será removida permanentemente"
+              }
               onConfirm={handleDelete}
               loading={isDeleting}
             />

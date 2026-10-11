@@ -5,14 +5,21 @@ import { useSession } from "next-auth/react";
 import { api } from "@/lib/api/client";
 import { BankAccountResponse } from "@/types/api";
 
-export interface CreateWalletPayload {
+export interface CreditCardFields {
+  /** Limite em centavos. */
+  creditLimit?: number | null;
+  closingDay?: number;
+  dueDay?: number;
+}
+
+export interface CreateWalletPayload extends CreditCardFields {
   name: string;
   type: string;
   color: string;
   initialBalance: number;
 }
 
-export interface UpdateWalletPayload {
+export interface UpdateWalletPayload extends CreditCardFields {
   name?: string;
   type?: string;
   color?: string;
@@ -41,6 +48,8 @@ export function useWallets() {
     queryClient.invalidateQueries({ queryKey: ["bank-accounts"] });
     queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    queryClient.invalidateQueries({ queryKey: ["transactions-stats"] });
+    queryClient.invalidateQueries({ queryKey: ["transfers"] });
   }
 
   async function createWallet(payload: CreateWalletPayload) {
@@ -50,6 +59,22 @@ export function useWallets() {
 
   async function updateWallet(id: string, payload: UpdateWalletPayload) {
     await api.patch(`/bank-accounts/${id}`, payload);
+    invalidate();
+  }
+
+  /** Corrige o saldo para `balanceInCents`; a diferença vira um lançamento de ajuste. */
+  async function adjustBalance(id: string, balanceInCents: number) {
+    await api.post(`/bank-accounts/${id}/adjust-balance`, { balance: balanceInCents / 100 });
+    invalidate();
+  }
+
+  async function archiveWallet(id: string) {
+    await api.post(`/bank-accounts/${id}/archive`);
+    invalidate();
+  }
+
+  async function unarchiveWallet(id: string) {
+    await api.post(`/bank-accounts/${id}/unarchive`);
     invalidate();
   }
 
@@ -69,6 +94,9 @@ export function useWallets() {
     error: error ? (error instanceof Error ? error.message : "Erro ao carregar contas") : null,
     createWallet,
     updateWallet,
+    adjustBalance,
+    archiveWallet,
+    unarchiveWallet,
     deleteWallet,
     createTransfer,
     refetch: () => invalidate(),
