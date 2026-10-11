@@ -197,13 +197,13 @@ export function CreditCardInvoiceDialog({ account, accounts, onOpenChange, onPay
                   Pagar fatura · {formatCurrency(invoice.remaining)}
                 </Button>
               )}
-              {invoice.status === "open" && invoice.total > 0 && (
+              {invoice.status === "open" && invoice.remaining > 0 && (
                 <Button
                   variant="outline"
                   onClick={() => setPayOpen(true)}
                   className="w-full rounded-2xl h-11 font-semibold border-slate-200"
                 >
-                  Antecipar pagamento
+                  Antecipar pagamento · {formatCurrency(invoice.remaining)}
                 </Button>
               )}
             </div>
@@ -220,7 +220,7 @@ export function CreditCardInvoiceDialog({ account, accounts, onOpenChange, onPay
           subtitle={`Transfira de uma conta para o cartão ${account.name}`}
           defaults={{
             toAccountId: account.id,
-            amount: invoice.remaining || invoice.total,
+            amount: invoice.remaining,
             description: `Pagamento fatura ${account.name}`,
           }}
           onCreate={onPay}
