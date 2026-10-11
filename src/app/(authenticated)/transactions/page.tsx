@@ -39,7 +39,7 @@ import { useTransactions } from "@/hooks/useTransactions";
 import { useTransfers } from "@/hooks/useTransfers";
 import { useScheduledTransactions } from "@/hooks/useScheduledTransactions";
 import { formatCurrency } from "@/lib/format";
-import { TransactionResponse, ScheduledTransactionResponse } from "@/types/api";
+import { TransactionResponse, ScheduledTransactionResponse, TransferResponse } from "@/types/api";
 import { cn } from "@/lib/utils";
 
 function Pulse({ className }: { className?: string }) {
@@ -129,6 +129,7 @@ export default function TransactionsPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
+  const [editingTransfer, setEditingTransfer] = useState<TransferResponse | null>(null);
   const [scheduledDialogOpen, setScheduledDialogOpen] = useState(false);
   const [editingScheduled, setEditingScheduled] = useState<ScheduledTransactionResponse | null>(null);
 
@@ -190,6 +191,7 @@ export default function TransactionsPage() {
     total: transfersTotal,
     totalPages: transfersTotalPages,
     loading: transfersLoading,
+    updateTransfer,
     deleteTransfer,
   } = useTransfers({
     startDate,
@@ -591,6 +593,7 @@ export default function TransactionsPage() {
                   transfers={transfers}
                   bankAccounts={bankAccounts}
                   loading={transfersLoading}
+                  onEdit={(t) => { setEditingTransfer(t); setTransferOpen(true); }}
                   onDelete={deleteTransfer}
                 />
                 <Pagination
@@ -677,9 +680,11 @@ export default function TransactionsPage() {
 
       <TransferFormDialog
         open={transferOpen}
-        onOpenChange={setTransferOpen}
+        onOpenChange={(open) => { setTransferOpen(open); if (!open) setEditingTransfer(null); }}
         accounts={bankAccounts}
+        transfer={editingTransfer}
         onCreate={createTransfer}
+        onUpdate={updateTransfer}
       />
 
       <ImportStatementDialog

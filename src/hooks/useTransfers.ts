@@ -5,6 +5,15 @@ import { useSession } from "next-auth/react";
 import { api } from "@/lib/api/client";
 import { PaginatedResponse, TransferResponse } from "@/types/api";
 
+export interface UpdateTransferPayload {
+  fromAccountId?: string;
+  toAccountId?: string;
+  /** Reais (como na criação). */
+  amount?: number;
+  description?: string | null;
+  date?: string;
+}
+
 export interface TransferFilters {
   startDate?: string;
   endDate?: string;
@@ -33,6 +42,13 @@ export function useTransfers(filters: TransferFilters = {}) {
     placeholderData: keepPreviousData,
   });
 
+  async function updateTransfer(id: string, payload: UpdateTransferPayload) {
+    await api.patch(`/transfers/${id}`, payload);
+    queryClient.invalidateQueries({ queryKey: ["transfers"] });
+    queryClient.invalidateQueries({ queryKey: ["bank-accounts"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+  }
+
   async function deleteTransfer(id: string) {
     await api.delete(`/transfers/${id}`);
     queryClient.invalidateQueries({ queryKey: ["transfers"] });
@@ -46,6 +62,7 @@ export function useTransfers(filters: TransferFilters = {}) {
     totalPages: data?.totalPages ?? 1,
     loading: isLoading,
     error: error ? (error instanceof Error ? error.message : "Erro ao carregar transferências") : null,
+    updateTransfer,
     deleteTransfer,
   };
 }
