@@ -128,6 +128,16 @@ export function useTransactions(filters: TransactionFilters = {}) {
     invalidate();
   }
 
+  /**
+   * Converte em transferência (ex.: aplicação/resgate lançado como despesa).
+   * Sem conta, usa a conta de investimento vinculada (criada se preciso).
+   */
+  async function convertToTransfer(id: string, counterpartAccountId?: string) {
+    await api.post(`/transactions/${id}/convert-to-transfer`, counterpartAccountId ? { counterpartAccountId } : {});
+    invalidate();
+    queryClient.invalidateQueries({ queryKey: ["transfers"] });
+  }
+
   /** `installments` exclui todas as parcelas da compra. */
   async function deleteTransaction(id: string, scope: "single" | "installments" = "single") {
     await api.delete(`/transactions/${id}${scope === "installments" ? "?scope=installments" : ""}`);
@@ -157,6 +167,7 @@ export function useTransactions(filters: TransactionFilters = {}) {
     createTransaction,
     updateTransaction,
     deleteTransaction,
+    convertToTransfer,
     refetch: () => invalidate(),
   };
 }
