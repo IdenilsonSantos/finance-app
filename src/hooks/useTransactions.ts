@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { api } from "@/lib/api/client";
 import {
   TransactionResponse,
+  TransactionStatus,
   TransactionsSummaryResponse,
   BankAccountResponse,
   PaginatedResponse,
@@ -21,6 +22,7 @@ export interface CreateTransactionPayload {
   date: string;
   /** Cartão de crédito: `amount` é o total, dividido em N parcelas mensais. */
   installments?: number;
+  status?: TransactionStatus;
 }
 
 export interface UpdateTransactionPayload {
@@ -32,6 +34,7 @@ export interface UpdateTransactionPayload {
   beneficiary?: string | null;
   paymentMethod?: string | null;
   date?: string;
+  status?: TransactionStatus;
 }
 
 export interface TransactionFilters {
@@ -41,6 +44,7 @@ export interface TransactionFilters {
   category?: string;
   accountId?: string;
   search?: string;
+  status?: TransactionStatus;
   page?: number;
   limit?: number;
   /** Intervalo usado para os totais de receitas/despesas do mês nos cards.
@@ -58,6 +62,7 @@ function buildParams(filters: TransactionFilters): string {
   if (filters.category) params.set("category", filters.category);
   if (filters.accountId) params.set("accountId", filters.accountId);
   if (filters.search) params.set("search", filters.search);
+  if (filters.status) params.set("status", filters.status);
   if (filters.page) params.set("page", String(filters.page));
   if (filters.limit) params.set("limit", String(filters.limit));
   return params.toString();
@@ -137,6 +142,9 @@ export function useTransactions(filters: TransactionFilters = {}) {
     monthExpense: summary?.expense ?? 0,
     incomeCount: summary?.incomeCount ?? 0,
     expenseCount: summary?.expenseCount ?? 0,
+    pendingIncome: summary?.pendingIncome ?? 0,
+    pendingExpense: summary?.pendingExpense ?? 0,
+    overdueCount: summary?.overdueCount ?? 0,
     activeDates: summary?.activeDates ?? [],
     bankAccounts: accountsQuery.data ?? [],
     loading: txQuery.isLoading || accountsQuery.isLoading,

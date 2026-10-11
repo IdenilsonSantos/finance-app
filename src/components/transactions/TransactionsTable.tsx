@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Pencil, Trash2, FileText, Landmark, QrCode, CreditCard, Wallet, Banknote, ArrowLeftRight, Barcode } from "lucide-react";
+import { CheckCircle2, Pencil, Trash2, FileText, Landmark, QrCode, CreditCard, Wallet, Banknote, ArrowLeftRight, Barcode } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -28,6 +28,7 @@ export interface TransactionItem {
   bankAccountColor: string | null;
   installmentNumber?: number | null;
   installmentTotal?: number | null;
+  status?: "paid" | "pending";
 }
 
 interface TransactionsTableProps {
@@ -35,6 +36,8 @@ interface TransactionsTableProps {
   deletingId?: string | null;
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
+  /** Efetiva uma conta pendente (mostra o botão nas linhas pendentes). */
+  onMarkPaid?: (id: string) => void;
   tableHeight?: number;
   /**
    * Simple mode: single table with sticky thead inside a ScrollArea.
@@ -66,12 +69,18 @@ const PAYMENT_METHODS: Record<string, { label: string; Icon: LucideIcon }> = {
 
 // ─── Shared row cells ────────────────────────────────────────────────────────
 
+function localToday() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function TxCells({
   tx,
   showActions,
   isDeleting,
   onEdit,
   onDeleteClick,
+  onMarkPaid,
   isSelected,
   onToggle,
 }: {
@@ -80,11 +89,14 @@ function TxCells({
   isDeleting: boolean;
   onEdit?: (id: string) => void;
   onDeleteClick: (id: string) => void;
+  onMarkPaid?: (id: string) => void;
   isSelected?: boolean;
   onToggle?: (id: string) => void;
 }) {
   const catStyle = getCategoryStyle(tx.category);
   const pm = tx.paymentMethod ? PAYMENT_METHODS[tx.paymentMethod] : null;
+  const isPending = tx.status === "pending";
+  const isOverdue = isPending && tx.date < localToday();
 
   return (
     <>
@@ -181,13 +193,24 @@ function TxCells({
       {/* Amount */}
       <td className="px-4 py-4 align-middle text-right w-[160px]">
         <span
-          className={`font-bold tabular-nums text-sm whitespace-nowrap ${
-            tx.type === "income" ? "text-emerald-600" : "text-red-600"
-          }`}
+          className={cn(
+            "font-bold tabular-nums text-sm whitespace-nowrap",
+            isPending ? "text-slate-400" : tx.type === "income" ? "text-emerald-600" : "text-red-600",
+          )}
         >
           {tx.type === "income" ? "+ " : "- "}
           {formatCurrency(tx.amount)}
         </span>
+        {isPending && (
+          <span
+            className={cn(
+              "block text-[10px] font-bold mt-0.5",
+              isOverdue ? "text-red-500" : "text-amber-500",
+            )}
+          >
+            {isOverdue ? "Atrasada" : tx.type === "income" ? "A receber" : "A pagar"}
+          </span>
+        )}
       </td>
 
       {/* Date */}
@@ -197,8 +220,24 @@ function TxCells({
 
       {/* Actions */}
       {showActions && (
-        <td className="pr-4 py-4 align-middle w-[80px]">
+        <td className="pr-4 py-4 align-middle w-[110px]">
           <div className="flex items-center justify-end gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+            {isPending && onMarkPaid && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={tx.type === "income" ? "Marcar como recebida" : "Marcar como paga"}
+                    className="w-8 h-8 rounded-xl text-slate-400 hover:text-emerald-600 hover:bg-emerald-50"
+                    onClick={() => onMarkPaid(tx.id)}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{tx.type === "income" ? "Marcar como recebida" : "Marcar como paga"}</TooltipContent>
+              </Tooltip>
+            )}
             {onEdit && (
               <Button
                 variant="ghost"
@@ -258,7 +297,7 @@ function TableHeader({
         <th className={`${TH} px-4 w-[160px] hidden md:table-cell${s}`}>Pagamento</th>
         <th className={`${TH} px-4 text-right w-[160px]${s}`}>Valor</th>
         <th className={`${TH} pl-4 pr-6 w-[110px] hidden lg:table-cell${s}`}>Data</th>
-        {showActions && <th className={`h-11 pr-4 w-[80px]${s}`} />}
+        {showActions && <th className={`h-11 pr-4 w-[110px]${s}`} />}
       </tr>
     </thead>
   );
@@ -271,6 +310,7 @@ export function TransactionsTable({
   deletingId = null,
   onEdit,
   onDelete,
+  onMarkPaid,
   tableHeight = DEFAULT_TABLE_HEIGHT,
   simple = false,
   emptyMessage,
@@ -344,6 +384,7 @@ export function TransactionsTable({
                     isDeleting={deletingId === tx.id}
                     onEdit={onEdit}
                     onDeleteClick={setConfirmId}
+                    onMarkPaid={onMarkPaid}
                     isSelected={selected?.has(tx.id)}
                     onToggle={showSelection ? onToggle : undefined}
                   />
@@ -395,6 +436,7 @@ export function TransactionsTable({
                       isDeleting={deletingId === tx.id}
                       onEdit={onEdit}
                       onDeleteClick={setConfirmId}
+                      onMarkPaid={onMarkPaid}
                       isSelected={selected?.has(tx.id)}
                       onToggle={showSelection ? onToggle : undefined}
                     />

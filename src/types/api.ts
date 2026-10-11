@@ -52,6 +52,8 @@ export interface TransactionResponse {
   category: string;
   paymentMethod: string | null;
   date: string;
+  /** `pending` = conta a pagar/receber: ainda não alterou o saldo. */
+  status: TransactionStatus;
   /** Compras parceladas no cartão: parcelas compartilham o grupo. */
   installmentGroupId: string | null;
   installmentNumber: number | null;
@@ -60,12 +62,23 @@ export interface TransactionResponse {
   updatedAt: string;
 }
 
+export type TransactionStatus = "paid" | "pending";
+
 export interface TransactionsSummaryResponse {
+  /** Receitas efetivadas. */
   income: number;
+  /** Despesas efetivadas. */
   expense: number;
   balance: number;
   incomeCount: number;
   expenseCount: number;
+  /** A receber no período. */
+  pendingIncome: number;
+  /** A pagar no período. */
+  pendingExpense: number;
+  pendingCount: number;
+  /** Pendências com data anterior a hoje. */
+  overdueCount: number;
   activeDates: string[];
 }
 
@@ -202,6 +215,11 @@ export interface DashboardFinancialInsights {
   monthExpenses: number;
   monthIncome: number;
   monthSavings: number;
+  /** A receber até o fim do mês (inclui atrasadas). */
+  pendingIncome: number;
+  /** A pagar até o fim do mês (inclui atrasadas). */
+  pendingExpenses: number;
+  overdueCount: number;
 }
 
 export interface DashboardCashFlowItem {
@@ -251,6 +269,7 @@ export interface DashboardTransaction {
   beneficiary: string | null;
   paymentMethod: string | null;
   date: string;
+  status: TransactionStatus;
   bankAccountId: string;
   bankAccountName: string | null;
   bankAccountColor: string | null;

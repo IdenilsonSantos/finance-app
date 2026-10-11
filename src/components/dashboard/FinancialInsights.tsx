@@ -23,6 +23,9 @@ export function FinancialInsights({ data }: FinancialInsightsProps) {
     savingsRate,
     monthExpenses,
     monthSavings,
+    pendingIncome,
+    pendingExpenses,
+    overdueCount,
   } = data;
 
   const aAvailableLiquidity = useCountUp(availableLiquidity);
@@ -71,6 +74,25 @@ export function FinancialInsights({ data }: FinancialInsightsProps) {
                       - {formatCurrency(aReservedForGoals)}
                     </span>
                   </div>
+                  {pendingIncome > 0 && (
+                    <div className="flex justify-between items-center text-xs py-1 border-b border-slate-50">
+                      <span className="text-slate-500">A receber (mês)</span>
+                      <span className="font-bold text-emerald-600">+ {formatCurrency(pendingIncome)}</span>
+                    </div>
+                  )}
+                  {pendingExpenses > 0 && (
+                    <div className="flex justify-between items-center text-xs py-1 border-b border-slate-50">
+                      <span className="text-slate-500">
+                        A pagar (mês)
+                        {overdueCount > 0 && (
+                          <span className="ml-1 text-red-500 font-semibold">
+                            · {overdueCount} atrasada{overdueCount > 1 ? "s" : ""}
+                          </span>
+                        )}
+                      </span>
+                      <span className="font-bold text-red-500">- {formatCurrency(pendingExpenses)}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -89,7 +111,7 @@ export function FinancialInsights({ data }: FinancialInsightsProps) {
                     {formatCurrency(aProjectedBalance)}
                   </span>
                   <span className="text-[10px] text-slate-400 leading-tight">
-                    Saldo Final = Disponível + Renda - Gastos - Metas
+                    Saldo Final = Disponível + A receber - A pagar - Gastos previstos - Metas
                   </span>
                 </div>
               </div>
