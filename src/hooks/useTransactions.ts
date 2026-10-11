@@ -45,6 +45,8 @@ export interface TransactionFilters {
   accountId?: string;
   search?: string;
   status?: TransactionStatus;
+  /** `asc` = ordem de vencimento (usado na lista de pendências). */
+  order?: "asc" | "desc";
   page?: number;
   limit?: number;
   /** Intervalo usado para os totais de receitas/despesas do mês nos cards.
@@ -63,6 +65,7 @@ function buildParams(filters: TransactionFilters): string {
   if (filters.accountId) params.set("accountId", filters.accountId);
   if (filters.search) params.set("search", filters.search);
   if (filters.status) params.set("status", filters.status);
+  if (filters.order) params.set("order", filters.order);
   if (filters.page) params.set("page", String(filters.page));
   if (filters.limit) params.set("limit", String(filters.limit));
   return params.toString();

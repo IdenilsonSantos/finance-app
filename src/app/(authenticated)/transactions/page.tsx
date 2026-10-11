@@ -121,6 +121,7 @@ export default function TransactionsPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [accountFilter, setAccountFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "paid" | "pending">("all");
+  const showAllPending = statusFilter === "pending";
   const [page, setPage] = useState(1);
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -168,8 +169,10 @@ export default function TransactionsPage() {
     deleteTransaction,
     refetch,
   } = useTransactions({
-    startDate,
-    endDate,
+    // Pendências: todas, de qualquer mês, por ordem de vencimento.
+    startDate: showAllPending ? undefined : startDate,
+    endDate: showAllPending ? undefined : endDate,
+    order: showAllPending ? "asc" : undefined,
     statsStartDate: monthStart,
     statsEndDate: monthEnd,
     type: typeFilter === "income" || typeFilter === "expense" ? typeFilter : undefined,
@@ -409,7 +412,7 @@ export default function TransactionsPage() {
             <div className="flex items-center gap-2 text-sm text-red-700">
               <AlertTriangle className="w-4 h-4 shrink-0" />
               <span>
-                {overdueCount} {overdueCount === 1 ? "conta atrasada" : "contas atrasadas"} neste mês
+                {overdueCount} {overdueCount === 1 ? "conta atrasada" : "contas atrasadas"}
               </span>
             </div>
             <button
@@ -545,7 +548,19 @@ export default function TransactionsPage() {
               </div>
             </div>
 
-            {typeFilter !== "scheduled" && (
+            {typeFilter !== "scheduled" && showAllPending && (
+              <div className="px-6 py-3 border-b border-slate-50 flex items-center justify-between gap-3 text-xs text-slate-500">
+                <span>Contas pendentes de todos os meses, por data de vencimento</span>
+                <button
+                  onClick={() => { setStatusFilter("all"); resetPage(); }}
+                  className="font-semibold text-slate-700 hover:underline whitespace-nowrap"
+                >
+                  Voltar ao mês
+                </button>
+              </div>
+            )}
+
+            {typeFilter !== "scheduled" && !showAllPending && (
               <div className="px-6 py-4 border-b border-slate-50">
                 <MonthDateStrip
                   selectedMonth={selectedMonth}
