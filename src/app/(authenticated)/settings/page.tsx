@@ -225,6 +225,10 @@ function ProfileSection() {
                   <FormControl>
                     <Input placeholder="Seu nome" disabled={isSubmitting} {...field} />
                   </FormControl>
+                  <p className="text-[11px] text-slate-400">
+                    Com nome e sobrenome, Pix e TEDs entre suas contas em outros bancos são reconhecidos na
+                    importação de extratos e não contam como receita nem despesa.
+                  </p>
                   <FormMessage />
                 </FormItem>
               )}

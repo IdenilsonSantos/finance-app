@@ -12,6 +12,7 @@ import {
   PartyPopper,
   FileText,
   Scale,
+  ArrowLeftRight,
   Tag,
   ShoppingBag,
   ShoppingCart,
@@ -54,6 +55,8 @@ export const CATEGORY_STYLES: Record<string, CategoryStyle> = {
   others:        { color: "#1E1E2D", label: "Outros",         icon: FileText },
   outros:        { color: "#1E1E2D", label: "Outros",         icon: FileText },
   adjustment:    { color: "#64748B", label: "Ajuste",         icon: Scale },
+  // Pix/TED entre contas próprias: fora de receitas/despesas, como o ajuste.
+  own_transfer:  { color: "#64748B", label: "Transferência entre contas", icon: ArrowLeftRight },
 };
 
 /** Ícones disponíveis para categorias personalizadas (nomes aceitos pela API). */
@@ -119,6 +122,9 @@ export const EXPENSE_CATEGORIES = [
 /** Categorias padrão de receita. */
 export const INCOME_CATEGORIES = ["salary", "freelance", "investment", "others"] as const;
 
+/** Não são receita nem despesa: não aparecem em orçamentos. */
+export const NON_FLOW_CATEGORIES = ["adjustment", "own_transfer"] as const;
+
 export interface CategoryOption extends CategoryStyle {
   key: string;
   type: "income" | "expense";
@@ -141,8 +147,10 @@ export function categoryOptions(type?: "income" | "expense"): CategoryOption[] {
   const all = [
     ...builtin("expense", EXPENSE_CATEGORIES),
     ...custom("expense"),
+    ...builtin("expense", ["own_transfer"]),
     ...builtin("income", INCOME_CATEGORIES),
     ...custom("income"),
+    ...builtin("income", ["own_transfer"]),
   ];
   if (type) return all.filter((o) => o.type === type);
   // Sem tipo (ex.: filtro): "Outros" aparece uma vez só.
