@@ -6,17 +6,27 @@ import { cn } from "@/lib/utils";
 interface CurrencyInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange"> {
   value?: string;
   onChange?: (value: string) => void;
+  /** Permite valores negativos: digitar "-" torna o valor negativo; apagá-lo volta a positivo. */
+  allowNegative?: boolean;
 }
 
 // Formats a raw numeric string to "1.234,56" display
-function toDisplay(raw: string): string {
+function toDisplay(raw: string, negative = false): string {
   const digits = raw.replace(/\D/g, "");
-  if (!digits) return "";
+  if (!digits) return negative ? "-" : "";
   const cents = parseInt(digits, 10);
-  return (cents / 100).toLocaleString("pt-BR", {
+  const formatted = (cents / 100).toLocaleString("pt-BR", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+  return negative ? `-${formatted}` : formatted;
+}
+
+function fromValue(value: string | undefined): string {
+  if (!value) return "";
+  const num = parseFloat(value);
+  if (isNaN(num)) return "";
+  return toDisplay(Math.round(Math.abs(num) * 100).toString(), num < 0);
 }
 
 // Converts display back to raw decimal string "1234.56"
@@ -27,31 +37,28 @@ function toRaw(display: string): string {
 }
 
 export const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputProps>(
-  ({ className, value, onChange, disabled, ...props }, ref) => {
-    const [display, setDisplay] = React.useState(() => {
-      if (!value) return "";
-      const num = parseFloat(value);
-      if (isNaN(num)) return "";
-      return (num * 100).toFixed(0).replace(/\D/g, "") === ""
-        ? ""
-        : toDisplay(Math.round(num * 100).toString());
-    });
+  ({ className, value, onChange, disabled, allowNegative = false, ...props }, ref) => {
+    const [display, setDisplay] = React.useState(() => fromValue(value));
 
     // Sync display when value prop changes (e.g. form reset via key)
     const prevValueRef = React.useRef(value);
     if (prevValueRef.current !== value) {
       prevValueRef.current = value;
-      const next = value
-        ? toDisplay(Math.round(parseFloat(value) * 100).toString())
-        : "";
-      if (next !== display) setDisplay(next);
+      const next = fromValue(value);
+      // Keep a lone "-" typed by the user while the value is still empty.
+      if (next !== display && !(display === "-" && !value)) setDisplay(next);
     }
 
     function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+      const negative = allowNegative && e.target.value.includes("-");
       const raw = e.target.value.replace(/\D/g, "");
-      const next = raw ? toDisplay(raw) : "";
-      setDisplay(next);
-      onChange?.(raw ? toRaw(raw) : "");
+      setDisplay(raw || negative ? toDisplay(raw, negative) : "");
+      if (!raw) {
+        onChange?.("");
+        return;
+      }
+      const decimal = toRaw(raw);
+      onChange?.(negative && parseFloat(decimal) !== 0 ? `-${decimal}` : decimal);
     }
 
     return (
@@ -62,7 +69,7 @@ export const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputPro
         <input
           ref={ref}
           type="text"
-          inputMode="numeric"
+          inputMode={allowNegative ? "text" : "numeric"}
           disabled={disabled}
           value={display}
           onChange={handleChange}

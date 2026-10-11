@@ -59,30 +59,30 @@ const createSchema = z.object({
   name: z.string().min(1, "Informe o nome da conta"),
   type: z.string().min(1, "Selecione o tipo"),
   color: z.string().min(1, "Selecione uma cor"),
+  // Pode ser negativo (ex.: conta no cheque especial).
   balance: z
     .string()
-    .min(1, "Informe o saldo inicial")
-    .refine((v) => !isNaN(parseFloat(v)) && parseFloat(v) >= 0, "Saldo inválido"),
+    .min(1, "Informe o saldo")
+    .refine((v) => !isNaN(parseFloat(v)), "Saldo inválido"),
 });
 
-const editSchema = z.object({
-  name: z.string().min(1, "Informe o nome da conta"),
-  type: z.string().min(1, "Selecione o tipo"),
-  color: z.string().min(1, "Selecione uma cor"),
-});
+// Na edição o saldo também é editável: a diferença vira um lançamento de
+// "Ajuste de saldo", como nos apps de finanças (não conta como receita/despesa).
+const editSchema = createSchema;
 
 type CreateValues = z.infer<typeof createSchema>;
-type EditValues = z.infer<typeof editSchema>;
+type EditValues = CreateValues;
 
 interface WalletFormProps {
   wallet?: BankAccountResponse | null;
   onCreate: (data: CreateWalletPayload) => Promise<void>;
   onUpdate: (id: string, data: UpdateWalletPayload) => Promise<void>;
+  onAdjustBalance?: (id: string, balanceInCents: number) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
   onClose: () => void;
 }
 
-function WalletForm({ wallet, onCreate, onUpdate, onDelete, onClose }: WalletFormProps) {
+function WalletForm({ wallet, onCreate, onUpdate, onAdjustBalance, onDelete, onClose }: WalletFormProps) {
   const isEdit = !!wallet;
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -90,7 +90,12 @@ function WalletForm({ wallet, onCreate, onUpdate, onDelete, onClose }: WalletFor
   const form = useForm<CreateValues | EditValues>({
     resolver: zodResolver(isEdit ? editSchema : createSchema),
     defaultValues: wallet
-      ? { name: wallet.name, type: wallet.type, color: wallet.color }
+      ? {
+          name: wallet.name,
+          type: wallet.type,
+          color: wallet.color,
+          balance: (wallet.balance / 100).toFixed(2),
+        }
       : { name: "", type: "checking", color: PRESET_COLORS[0], balance: "" },
   });
 
@@ -105,7 +110,13 @@ function WalletForm({ wallet, onCreate, onUpdate, onDelete, onClose }: WalletFor
           type: values.type,
           color: values.color,
         });
-        toast.success("Conta atualizada");
+        const newBalance = Math.round(parseFloat(values.balance) * 100);
+        if (onAdjustBalance && newBalance !== wallet.balance) {
+          await onAdjustBalance(wallet.id, newBalance);
+          toast.success("Conta atualizada e saldo ajustado");
+        } else {
+          toast.success("Conta atualizada");
+        }
       } else {
         const v = values as CreateValues;
         await onCreate({
@@ -202,21 +213,27 @@ function WalletForm({ wallet, onCreate, onUpdate, onDelete, onClose }: WalletFor
           )}
         />
 
-        {!isEdit && (
+        {(!isEdit || onAdjustBalance) && (
           <FormField
             control={form.control as ReturnType<typeof useForm<CreateValues>>["control"]}
             name="balance"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Saldo inicial</FormLabel>
+                <FormLabel>{isEdit ? "Saldo atual" : "Saldo inicial"}</FormLabel>
                 <FormControl>
                   <CurrencyInput
                     placeholder="0,00"
+                    allowNegative
                     disabled={isSubmitting}
                     value={field.value}
                     onChange={field.onChange}
                   />
                 </FormControl>
+                <p className="text-[11px] text-slate-400">
+                  {isEdit
+                    ? "Alterar o saldo cria um lançamento de ajuste, sem afetar receitas e despesas."
+                    : "Digite \"-\" para saldo negativo (ex.: cheque especial)."}
+                </p>
                 <FormMessage />
               </FormItem>
             )}
@@ -283,7 +300,7 @@ function WalletForm({ wallet, onCreate, onUpdate, onDelete, onClose }: WalletFor
               open={confirmOpen}
               onOpenChange={setConfirmOpen}
               title="Excluir conta"
-              description="Essa ação não pode ser desfeita. A conta e todas as suas transações serão removidas permanentemente."
+              description="Essa ação não pode ser desfeita. A conta, suas transações e transferências serão removidas permanentemente."
               onConfirm={handleDelete}
               loading={isDeleting}
             />
@@ -300,6 +317,7 @@ interface WalletFormDialogProps {
   wallet?: BankAccountResponse | null;
   onCreate: (data: CreateWalletPayload) => Promise<void>;
   onUpdate: (id: string, data: UpdateWalletPayload) => Promise<void>;
+  onAdjustBalance?: (id: string, balanceInCents: number) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
 }
 
@@ -309,6 +327,7 @@ export function WalletFormDialog({
   wallet,
   onCreate,
   onUpdate,
+  onAdjustBalance,
   onDelete,
 }: WalletFormDialogProps) {
   const isEdit = !!wallet;
@@ -329,6 +348,7 @@ export function WalletFormDialog({
           wallet={wallet}
           onCreate={onCreate}
           onUpdate={onUpdate}
+          onAdjustBalance={onAdjustBalance}
           onDelete={onDelete}
           onClose={() => onOpenChange(false)}
         />

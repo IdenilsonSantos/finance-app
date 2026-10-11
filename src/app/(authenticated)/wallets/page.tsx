@@ -6,7 +6,6 @@ import {
   Search,
   Wallet,
   TrendingUp,
-  TrendingDown,
   ListFilter,
   LayoutGrid,
   Landmark,
@@ -82,7 +81,8 @@ type TypeFilter = (typeof TYPE_TABS)[number]["id"];
 type SortOrder = "name_asc" | "name_desc" | "balance_highest" | "balance_lowest";
 
 export default function WalletsPage() {
-  const { wallets, loading, error, createWallet, updateWallet, deleteWallet, createTransfer } = useWallets();
+  const { wallets, loading, error, createWallet, updateWallet, adjustBalance, deleteWallet, createTransfer } =
+    useWallets();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
@@ -199,8 +199,8 @@ export default function WalletsPage() {
             label="Maior Saldo"
             value={wallets.length > 0 ? Math.max(...wallets.map((w) => w.balance)) : 0}
             format={formatCurrency}
-            icon={TrendingDown}
-            iconClassName="bg-red-50 text-red-500"
+            icon={Landmark}
+            iconClassName="bg-blue-50 text-blue-500"
             loading={loading}
             footer={
               wallets.length > 0
@@ -340,6 +340,7 @@ export default function WalletsPage() {
         wallet={editing}
         onCreate={createWallet}
         onUpdate={updateWallet}
+        onAdjustBalance={adjustBalance}
         onDelete={deleteWallet}
       />
 

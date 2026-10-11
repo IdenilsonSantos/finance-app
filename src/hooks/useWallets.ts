@@ -55,6 +55,12 @@ export function useWallets() {
     invalidate();
   }
 
+  /** Corrige o saldo para `balanceInCents`; a diferença vira um lançamento de ajuste. */
+  async function adjustBalance(id: string, balanceInCents: number) {
+    await api.post(`/bank-accounts/${id}/adjust-balance`, { balance: balanceInCents / 100 });
+    invalidate();
+  }
+
   async function deleteWallet(id: string) {
     await api.delete(`/bank-accounts/${id}`);
     invalidate();
@@ -71,6 +77,7 @@ export function useWallets() {
     error: error ? (error instanceof Error ? error.message : "Erro ao carregar contas") : null,
     createWallet,
     updateWallet,
+    adjustBalance,
     deleteWallet,
     createTransfer,
     refetch: () => invalidate(),
