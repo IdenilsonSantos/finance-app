@@ -126,6 +126,8 @@ export interface BankAccountResponse {
   closingDay: number | null;
   dueDay: number | null;
   archivedAt: string | null;
+  /** Conta de origem, quando esta é a conta de investimento vinculada a ela. */
+  linkedAccountId: string | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -108,6 +108,7 @@ interface TransactionFormDialogProps {
   onUpdate: (id: string, data: UpdateTransactionPayload) => Promise<void>;
   onDelete?: (id: string, scope?: "single" | "installments") => Promise<void>;
   onCreateScheduled?: (data: CreateScheduledTransactionPayload) => Promise<void>;
+  onConvertToTransfer?: (id: string, counterpartAccountId?: string) => Promise<void>;
 }
 
 interface TransactionFormProps {
@@ -117,6 +118,7 @@ interface TransactionFormProps {
   onUpdate: (id: string, data: UpdateTransactionPayload) => Promise<void>;
   onDelete?: (id: string, scope?: "single" | "installments") => Promise<void>;
   onCreateScheduled?: (data: CreateScheduledTransactionPayload) => Promise<void>;
+  onConvertToTransfer?: (id: string, counterpartAccountId?: string) => Promise<void>;
   onClose: () => void;
 }
 
@@ -127,6 +129,7 @@ function TransactionForm({
   onUpdate,
   onDelete,
   onCreateScheduled,
+  onConvertToTransfer,
   onClose,
 }: TransactionFormProps) {
   const isEdit = !!transaction;
@@ -165,6 +168,9 @@ function TransactionForm({
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteScope, setDeleteScope] = useState<"single" | "installments">("single");
+  const [convertOpen, setConvertOpen] = useState(false);
+  const [convertTarget, setConvertTarget] = useState<string>("__linked__");
+  const [isConverting, setIsConverting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [walletDialogOpen, setWalletDialogOpen] = useState(false);
   const [extraAccounts, setExtraAccounts] = useState<BankAccountResponse[]>([]);
@@ -244,6 +250,48 @@ function TransactionForm({
       onClose();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Erro ao salvar");
+    }
+  }
+
+  // Converter em transferência: só lançamentos já efetivados, fora de cartão,
+  // ajustes e parcelamentos (as mesmas regras da API).
+  const transactionAccount = transaction
+    ? allAccounts.find((a) => a.id === transaction.bankAccountId)
+    : undefined;
+  const linkedInvestment = transaction
+    ? bankAccounts.find((a) => a.linkedAccountId === transaction.bankAccountId && !a.archivedAt)
+    : undefined;
+  const convertOptions = transaction
+    ? bankAccounts.filter(
+        (a) =>
+          a.id !== transaction.bankAccountId &&
+          a.id !== linkedInvestment?.id &&
+          !a.archivedAt &&
+          !isCreditCard(a),
+      )
+    : [];
+  const canConvert =
+    !!onConvertToTransfer &&
+    !!transaction &&
+    transaction.status === "paid" &&
+    transaction.category !== "adjustment" &&
+    !transaction.installmentGroupId &&
+    !isCreditCard(transactionAccount);
+
+  async function handleConvert() {
+    if (!transaction || !onConvertToTransfer) return;
+    setIsConverting(true);
+    try {
+      await onConvertToTransfer(
+        transaction.id,
+        convertTarget === "__linked__" ? undefined : convertTarget,
+      );
+      toast.success("Convertida em transferência");
+      onClose();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Erro ao converter");
+    } finally {
+      setIsConverting(false);
     }
   }
 
@@ -636,6 +684,66 @@ function TransactionForm({
         </Button>
 
         {/* Delete (edit only) */}
+        {canConvert && (
+          <div className="rounded-2xl border border-slate-100 p-4 space-y-3">
+            {!convertOpen ? (
+              <button
+                type="button"
+                onClick={() => setConvertOpen(true)}
+                className="w-full flex items-center justify-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900"
+              >
+                <ArrowLeftRight className="w-4 h-4" />
+                {transaction?.type === "expense"
+                  ? "É uma aplicação ou transferência? Converter"
+                  : "É um resgate ou transferência? Converter"}
+              </button>
+            ) : (
+              <>
+                <p className="text-xs text-slate-500">
+                  Aplicações, resgates e movimentações entre suas contas não são despesa nem receita.
+                  {transaction?.type === "expense" ? " O valor vai para a conta escolhida." : " O valor sai da conta escolhida."}
+                </p>
+                <Select value={convertTarget} onValueChange={setConvertTarget}>
+                  <SelectTrigger disabled={isConverting}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__linked__">
+                      {linkedInvestment
+                        ? linkedInvestment.name
+                        : `Investimentos · ${transactionAccount?.name ?? "conta"} (nova)`}
+                    </SelectItem>
+                    {convertOptions.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isConverting}
+                    onClick={() => setConvertOpen(false)}
+                    className="rounded-2xl h-10"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={isConverting}
+                    onClick={handleConvert}
+                    className="rounded-2xl h-10 bg-[#1E1E2D] text-white hover:bg-slate-800 gap-2"
+                  >
+                    {isConverting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Converter"}
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
         {isEdit && onDelete && (
           <>
             {isInstallment && (
@@ -714,6 +822,7 @@ export function TransactionFormDialog({
   onUpdate,
   onDelete,
   onCreateScheduled,
+  onConvertToTransfer,
 }: TransactionFormDialogProps) {
   const isEdit = !!transaction;
   const typeLabel = isEdit
@@ -743,6 +852,7 @@ export function TransactionFormDialog({
           onUpdate={onUpdate}
           onDelete={onDelete}
           onCreateScheduled={onCreateScheduled}
+          onConvertToTransfer={onConvertToTransfer}
           onClose={() => onOpenChange(false)}
         />
       </DialogContent>

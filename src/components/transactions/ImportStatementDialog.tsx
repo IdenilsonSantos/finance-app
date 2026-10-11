@@ -32,6 +32,11 @@ import { formatCurrency } from "@/lib/format";
 interface ImportResult {
   imported: number;
   duplicates: number;
+  /** Contas pendentes encontradas no extrato e marcadas como pagas. */
+  settled?: number;
+  /** Aplicações/resgates registrados como transferência. */
+  investmentTransfers?: number;
+  investmentAccountName?: string;
   total: number;
   accountCreated?: boolean;
   accountName?: string;
@@ -356,6 +361,21 @@ export function ImportStatementDialog({ open, onOpenChange, bankAccounts, onSucc
                     {result.accountCreated && (
                       <p className="text-xs text-slate-500 mt-0.5">
                         Conta criada: <strong>{result.accountName}</strong>
+                      </p>
+                    )}
+                    {!!result.settled && (
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {result.settled} conta{result.settled > 1 ? "s" : ""} pendente
+                        {result.settled > 1 ? "s" : ""} marcada{result.settled > 1 ? "s" : ""} como paga
+                        {result.settled > 1 ? "s" : ""}.
+                      </p>
+                    )}
+                    {!!result.investmentTransfers && (
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {result.investmentTransfers}{" "}
+                        {result.investmentTransfers > 1 ? "aplicações/resgates registrados" : "aplicação/resgate registrado"}{" "}
+                        como transferência para <strong>{result.investmentAccountName}</strong> (não contam
+                        como despesa nem receita).
                       </p>
                     )}
                     {result.adjusted && result.divergence !== undefined && (

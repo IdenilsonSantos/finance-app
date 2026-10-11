@@ -47,6 +47,7 @@ export function AccountsOverview({ accounts, onMutate }: AccountsOverviewProps) 
         closingDay: null,
         dueDay: null,
         archivedAt: null,
+        linkedAccountId: null,
         createdAt: "",
         updatedAt: "",
       },

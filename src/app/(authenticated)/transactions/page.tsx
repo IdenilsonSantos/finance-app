@@ -167,6 +167,7 @@ export default function TransactionsPage() {
     createTransaction,
     updateTransaction,
     deleteTransaction,
+    convertToTransfer,
     refetch,
   } = useTransactions({
     // Pendências: todas, de qualquer mês, por ordem de vencimento.
@@ -654,6 +655,7 @@ export default function TransactionsPage() {
         onCreate={createTransaction}
         onUpdate={updateTransaction}
         onDelete={editing ? deleteTransaction : undefined}
+        onConvertToTransfer={convertToTransfer}
         onCreateScheduled={async (data) => {
           await createScheduledTransaction(data);
           setTypeFilter("scheduled");
